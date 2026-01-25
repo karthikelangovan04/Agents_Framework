@@ -4,7 +4,7 @@
 
 ## Overview
 
-The Google Agent Development Kit (ADK) is a comprehensive framework for building AI agents using Google's Gemini models and Vertex AI. This guide will help you set up your development environment using UV (a fast Python package manager) and get started with Google ADK.
+The Google Agent Development Kit (ADK) is a comprehensive framework for building AI agents using Google's Gemini models and Vertex AI. This guide will help you set up your development environment using UV (a fast Python package manager) and get started with Google Agent Development Kit.
 
 ## Prerequisites
 
