@@ -176,7 +176,10 @@ Manage application, user, and session-level state with automatic scoping and del
 - Temporary state
 - State delta updates
 
-### 10. [Other Packages](09-Other-Packages.md) (`docs/09-Other-Packages.md`)
+### 10. [ADK Web Interface Analysis](14-ADK-Web-Interface-Analysis.md) (`docs/14-ADK-Web-Interface-Analysis.md`)
+Detailed analysis of the ADK web interface: `adk web`, Dev UI, API endpoints, agent discovery, Runner/services, and library structure.
+
+### 11. [Other Packages](09-Other-Packages.md) (`docs/09-Other-Packages.md`)
 Additional packages providing supporting functionality.
 
 **Topics Covered:**
@@ -203,6 +206,9 @@ Additional packages providing supporting functionality.
 
 **Create a web app:**
 → [Apps Package - Example 1](05-Apps-Package.md#example-1-simple-web-app)
+
+**Use the ADK web interface (adk web) for development:**
+→ [ADK Web Interface Analysis](14-ADK-Web-Interface-Analysis.md)
 
 **Enable code execution:**
 → [Code Executors Package - Example 1](06-Code-Executors-Package.md#example-1-agent-with-code-execution)

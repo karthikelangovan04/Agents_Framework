@@ -19,6 +19,7 @@ All documentation files are located in the `docs/` directory:
 | **Sessions** | `docs/07-Sessions-Package.md` | `google.adk.sessions` |
 | **Memory** | `docs/08-Memory-Package.md` | `google.adk.memory` |
 | **State Management** | `docs/11-State-Management.md` | `google.adk.sessions.state` |
+| **ADK Web Interface Analysis** | `docs/14-ADK-Web-Interface-Analysis.md` | `adk web`, Dev UI, CLI, `google.adk.cli` |
 | **Other Packages** | `docs/09-Other-Packages.md` | models, auth, examples, planners, flows, plugins, artifacts, events, telemetry, evaluation, features, cli, platform, runners, dependencies, errors, utils, version |
 
 ## 💻 Example Files
@@ -163,7 +164,7 @@ All runnable example files are located in the `examples/` directory:
 - **Total Packages**: 25
 - **Fully Documented**: 8 packages (with detailed examples)
 - **Documented in Other**: 17 packages
-- **Documentation Files**: 12 markdown files
+- **Documentation Files**: 13 markdown files
 - **Example Files**: 6 runnable Python files
 - **Utility Scripts**: 2 Python scripts
 
@@ -183,6 +184,7 @@ All runnable example files are located in the `examples/` directory:
 - [Sessions](docs/07-Sessions-Package.md)
 - [Memory](docs/08-Memory-Package.md)
 - [State Management](docs/11-State-Management.md)
+- [ADK Web Interface Analysis](docs/14-ADK-Web-Interface-Analysis.md)
 - [Other Packages](docs/09-Other-Packages.md)
 
 ### Examples
