@@ -16,7 +16,8 @@ This document explains how to implement **per-user MCP tool management** similar
 2. Frontend-to-backend flow
 3. How Google ADK supports this with Sessions and State Management
 4. User-level vs Session-level tool management
-5. Complete working examples
+5. Application-level tools (default tools for all users)
+6. Complete working examples
 
 ## Table of Contents
 
@@ -24,8 +25,9 @@ This document explains how to implement **per-user MCP tool management** similar
 2. [Frontend-to-Backend Flow](#frontend-to-backend-flow)
 3. [Google ADK Implementation](#google-adk-implementation)
 4. [User-Level vs Session-Level Tools](#user-level-vs-session-level-tools)
-5. [Required Google ADK Packages](#required-google-adk-packages)
-6. [Complete Examples](#complete-examples)
+5. [Application-Level MCP Tools](#application-level-mcp-tools-default-tools-for-all-users)
+6. [Required Google ADK Packages](#required-google-adk-packages)
+7. [Complete Examples](#complete-examples)
 
 ---
 
@@ -335,6 +337,7 @@ toolsets = await tool_manager.get_toolsets_for_session(
 
 ```
 Application State (app:)
+    └── app:mcp_servers  ← Default tools for ALL users (like Claude/Cursor built-ins)
     └── Shared across all users
     
 User State (user:)
@@ -347,6 +350,176 @@ Session State (no prefix)
     └── conversation_context
     └── ...
 ```
+
+---
+
+## Application-Level MCP Tools (Default Tools for All Users)
+
+### What Are Application-Level Tools?
+
+**Application-level MCP tools** are **preloaded default tools** that are available to **ALL users** by default, similar to how Claude Desktop and Cursor offer built-in tools to all users.
+
+### Real-World Examples
+
+- **Claude Desktop**: Offers default tools like web search, code execution (if enabled)
+- **Cursor**: Provides default IDE integration tools to all users
+- **Your App**: Could offer default MCP tools like:
+  - Google Search (for all users)
+  - Company-specific API tools
+  - Shared database connectors
+  - Common utility tools
+
+### Key Characteristics
+
+1. **Available to Everyone**: All users get these tools automatically
+2. **No User Configuration Needed**: Users don't need to add them
+3. **Managed by Admins**: Only admins/developers can change app-level tools
+4. **Persistent**: Stored in application-level state (`app:mcp_servers`)
+
+### Implementation Example
+
+```python
+# Setup app-level tools (done once by admin/developer)
+async def setup_app_level_tools(session_service, app_name):
+    """Setup default MCP tools for all users."""
+    
+    # Get or create admin session to access app-level state
+    admin_session = await session_service.get_session(
+        app_name=app_name,
+        user_id="admin",
+        session_id="app_config"
+    )
+    
+    if not admin_session:
+        admin_session = await session_service.create_session(
+            app_name=app_name,
+            user_id="admin",
+            session_id="app_config"
+        )
+    
+    # Store in application-level state
+    state = State(value=admin_session.state.value, delta=admin_session.state.delta)
+    
+    # App-level MCP servers (available to ALL users)
+    state["app:mcp_servers"] = [
+        {
+            "name": "google_search",
+            "type": "stdio",
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-google-search"],
+            "enabled": True
+        },
+        {
+            "name": "company_api",
+            "type": "sse",
+            "url": "https://api.company.com/mcp",
+            "headers": {"Authorization": "Bearer company_token"},
+            "enabled": True
+        }
+    ]
+    
+    # Save state
+    await session_service.append_event(
+        app_name=app_name,
+        user_id="admin",
+        session_id=admin_session.id,
+        event={"type": "app_config_update", "data": state.delta}
+    )
+
+# Load app-level tools (available to all users)
+async def get_app_level_toolsets(session_service, app_name, tool_manager) -> List[McpToolset]:
+    """Get application-level MCP toolsets."""
+    
+    # Access app-level state
+    admin_session = await session_service.get_session(
+        app_name=app_name,
+        user_id="admin",
+        session_id="app_config"
+    )
+    
+    if not admin_session:
+        return []
+    
+    state = State(value=admin_session.state.value, delta=admin_session.state.delta)
+    app_mcp_config = state.get("app:mcp_servers", [])
+    
+    # Create toolsets from app config
+    toolsets = []
+    for server_config_dict in app_mcp_config:
+        if not server_config_dict.get("enabled", True):
+            continue
+        
+        try:
+            # Use tool_manager's methods to create toolsets
+            # (implementation depends on your tool_manager structure)
+            server_config = MCPServerConfig(**server_config_dict)
+            # Create toolset based on type...
+            # (See example code for full implementation)
+        except Exception as e:
+            logger.error(f"Error creating app-level toolset: {e}")
+    
+    return toolsets
+```
+
+### Combining All Three Levels
+
+When creating an agent, combine tools from all three levels:
+
+```python
+async def get_all_toolsets_for_user(
+    tool_manager: PerUserMCPToolManager,
+    session_service: DatabaseSessionService,
+    app_name: str,
+    user_id: str,
+    session_id: str
+) -> List[McpToolset]:
+    """Get toolsets from all three levels."""
+    
+    all_toolsets = []
+    
+    # 1. Application-level tools (default for all users)
+    app_toolsets = await get_app_level_toolsets(session_service, app_name, tool_manager)
+    all_toolsets.extend(app_toolsets)
+    
+    # 2. User-level tools (user's personal tools)
+    user_toolsets = await tool_manager.get_toolsets_for_user(user_id)
+    all_toolsets.extend(user_toolsets)
+    
+    # 3. Session-level tools (temporary tools)
+    # Note: get_toolsets_for_session already includes user tools
+    # We need to get only session-specific tools
+    session = await session_service.get_session(app_name, user_id, session_id)
+    if session:
+        state = State(value=session.state.value, delta=session.state.delta)
+        session_mcp_config = state.get("session_mcp_servers", [])
+        for server_config_dict in session_mcp_config:
+            # Create session toolsets...
+            pass
+    
+    return all_toolsets
+
+# Create agent with all tools
+agent = LlmAgent(
+    model="gemini-2.0-flash",
+    tools=all_toolsets  # App + User + Session tools
+)
+```
+
+### Tool Priority/Order
+
+The order matters! Typically:
+
+1. **Application-level** (lowest priority, can be overridden)
+2. **User-level** (user's preferences override app defaults)
+3. **Session-level** (highest priority, temporary overrides)
+
+### When to Use Each Level
+
+| Level | Use For | Example |
+|-------|---------|---------|
+| **Application** | Default tools for all users | Google Search, company APIs, shared utilities |
+| **User** | User's personal tools | Personal filesystem access, user's API keys |
+| **Session** | Temporary tools | One-time analysis, context-specific tools |
 
 ---
 

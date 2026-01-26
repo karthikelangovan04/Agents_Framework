@@ -349,6 +349,160 @@ class PerUserMCPToolManager:
             del self._user_toolsets_cache[user_id]
 
 
+# Application-Level MCP Tools Manager
+class AppLevelMCPToolManager:
+    """
+    Manages application-level MCP tools (default tools for all users).
+    
+    These are like built-in tools in Claude/Cursor that all users get by default.
+    Stored in application-level state (app:mcp_servers).
+    """
+    
+    def __init__(self, session_service: DatabaseSessionService, app_name: str):
+        self.session_service = session_service
+        self.app_name = app_name
+        self._app_toolsets_cache: Optional[List[McpToolset]] = None
+    
+    async def get_app_mcp_config(self) -> List[Dict]:
+        """Get application-level MCP config from app-level state."""
+        # Use admin session to access app-level state
+        admin_session = await self.session_service.get_session(
+            app_name=self.app_name,
+            user_id="admin",
+            session_id="app_config"
+        )
+        
+        if not admin_session:
+            return []
+        
+        state = State(value=admin_session.state.value, delta=admin_session.state.delta)
+        app_mcp_config = state.get("app:mcp_servers", [])
+        
+        return app_mcp_config if isinstance(app_mcp_config, list) else []
+    
+    async def set_app_mcp_config(self, mcp_servers: List[Dict]) -> bool:
+        """
+        Set application-level MCP config.
+        
+        This should only be called by admins/developers.
+        These tools are available to ALL users by default.
+        """
+        # Get or create admin session
+        admin_session = await self.session_service.get_session(
+            app_name=self.app_name,
+            user_id="admin",
+            session_id="app_config"
+        )
+        
+        if not admin_session:
+            admin_session = await self.session_service.create_session(
+                app_name=self.app_name,
+                user_id="admin",
+                session_id="app_config"
+            )
+        
+        # Update app-level state
+        state = State(value=admin_session.state.value, delta=admin_session.state.delta)
+        state["app:mcp_servers"] = mcp_servers
+        
+        # Save state
+        await self.session_service.append_event(
+            app_name=self.app_name,
+            user_id="admin",
+            session_id=admin_session.id,
+            event={
+                "type": "app_config_update",
+                "data": {"mcp_servers": mcp_servers}
+            }
+        )
+        
+        # Clear cache
+        self._app_toolsets_cache = None
+        
+        logger.info(f"Updated app-level MCP config: {len(mcp_servers)} servers")
+        return True
+    
+    async def get_app_toolsets(self) -> List[McpToolset]:
+        """Get application-level toolsets (available to all users)."""
+        # Check cache
+        if self._app_toolsets_cache is not None:
+            return self._app_toolsets_cache
+        
+        # Get app config
+        app_config = await self.get_app_mcp_config()
+        
+        if not app_config:
+            self._app_toolsets_cache = []
+            return []
+        
+        # Create toolsets
+        toolsets = []
+        for server_config_dict in app_config:
+            if not server_config_dict.get("enabled", True):
+                continue
+            
+            try:
+                server_config = MCPServerConfig(**server_config_dict)
+                
+                if server_config.type == 'stdio':
+                    toolset = self._create_stdio_toolset(server_config)
+                elif server_config.type == 'sse':
+                    toolset = self._create_sse_toolset(server_config)
+                elif server_config.type == 'http':
+                    toolset = self._create_http_toolset(server_config)
+                else:
+                    continue
+                
+                toolsets.append(toolset)
+            except Exception as e:
+                logger.error(f"Error creating app-level toolset: {e}")
+        
+        self._app_toolsets_cache = toolsets
+        return toolsets
+    
+    def _create_stdio_toolset(self, config: MCPServerConfig) -> McpToolset:
+        server_params = StdioServerParameters(
+            command=config.command,
+            args=config.args or [],
+            env=config.env or {},
+        )
+        connection_params = StdioConnectionParams(
+            server_params=server_params,
+            timeout=config.timeout
+        )
+        return McpToolset(
+            connection_params=connection_params,
+            tool_filter=config.tool_filter,
+            tool_name_prefix=config.tool_name_prefix
+        )
+    
+    def _create_sse_toolset(self, config: MCPServerConfig) -> McpToolset:
+        connection_params = SseConnectionParams(
+            url=config.url,
+            headers=config.headers,
+            timeout=config.timeout,
+            sse_read_timeout=config.sse_read_timeout
+        )
+        return McpToolset(
+            connection_params=connection_params,
+            tool_filter=config.tool_filter,
+            tool_name_prefix=config.tool_name_prefix
+        )
+    
+    def _create_http_toolset(self, config: MCPServerConfig) -> McpToolset:
+        connection_params = StreamableHTTPConnectionParams(
+            url=config.url,
+            headers=config.headers,
+            timeout=config.timeout,
+            sse_read_timeout=config.sse_read_timeout
+        )
+        return McpToolset(
+            connection_params=connection_params,
+            tool_filter=config.tool_filter,
+            tool_name_prefix=config.tool_name_prefix
+        )
+
+
 # Example: Frontend-to-Backend Flow
 class MCPConfigAPI:
     """
@@ -395,29 +549,47 @@ class MCPConfigAPI:
         self,
         user_id: str,
         session_id: str,
-        model: str = "gemini-2.0-flash"
+        model: str = "gemini-2.0-flash",
+        app_tool_manager: Optional[AppLevelMCPToolManager] = None
     ) -> LlmAgent:
         """
         Create an agent with user's MCP tools.
         
         This is called when user starts a conversation.
         Tools are loaded dynamically based on user's config.
+        
+        Args:
+            user_id: User identifier
+            session_id: Session identifier
+            model: LLM model to use
+            app_tool_manager: Optional app-level tool manager for default tools
         """
-        # Get toolsets for this user/session
-        toolsets = await self.tool_manager.get_toolsets_for_session(
+        all_toolsets = []
+        
+        # 1. Get app-level toolsets (default tools for all users)
+        if app_tool_manager:
+            app_toolsets = await app_tool_manager.get_app_toolsets()
+            all_toolsets.extend(app_toolsets)
+            logger.info(f"Added {len(app_toolsets)} app-level toolsets")
+        
+        # 2. Get user-level and session-level toolsets
+        user_session_toolsets = await self.tool_manager.get_toolsets_for_session(
             user_id=user_id,
             session_id=session_id
         )
+        all_toolsets.extend(user_session_toolsets)
         
-        # Create agent with user's tools
+        # Create agent with all tools (app + user + session)
         agent = LlmAgent(
             model=model,
             name=f"user_{user_id}_agent",
-            tools=toolsets
+            tools=all_toolsets
         )
         
         logger.info(
-            f"Created agent for user {user_id} with {len(toolsets)} MCP toolsets"
+            f"Created agent for user {user_id} with {len(all_toolsets)} MCP toolsets "
+            f"({len(app_toolsets) if app_tool_manager else 0} app-level, "
+            f"{len(user_session_toolsets)} user/session-level)"
         )
         
         return agent
@@ -589,3 +761,82 @@ if __name__ == "__main__":
     
     # Uncomment to run runner example
     # asyncio.run(example_with_runner())
+
+
+# Example: Application-Level Tools
+async def example_app_level_tools():
+    """Example showing application-level MCP tools (default tools for all users)."""
+    
+    session_service = DatabaseSessionService(
+        db_url="sqlite+aiosqlite:///app_level_tools.db"
+    )
+    
+    app_name = "mcp_app"
+    
+    # Initialize app-level tool manager
+    app_tool_manager = AppLevelMCPToolManager(
+        session_service=session_service,
+        app_name=app_name
+    )
+    
+    # Setup app-level tools (done once by admin)
+    app_level_config = [
+        {
+            "name": "google_search",
+            "type": "stdio",
+            "enabled": True,
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-google-search"]
+        },
+        {
+            "name": "company_api",
+            "type": "sse",
+            "enabled": True,
+            "url": "http://localhost:8000/mcp",
+            "headers": {"Authorization": "Bearer company_token"}
+        }
+    ]
+    
+    await app_tool_manager.set_app_mcp_config(app_level_config)
+    print(f"✓ App-level tools configured: {len(app_level_config)} servers")
+    
+    # Initialize user tool manager
+    user_tool_manager = PerUserMCPToolManager(session_service, app_name)
+    api = MCPConfigAPI(user_tool_manager)
+    
+    # User 1 configures their personal tools
+    user1_id = "user_001"
+    user1_config = [
+        {
+            "name": "filesystem",
+            "type": "stdio",
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/user1"]
+        }
+    ]
+    await api.update_user_mcp_config(user1_id, user1_config)
+    
+    # User 1 starts chat - gets BOTH app-level AND user-level tools
+    agent1 = await api.create_agent_for_user(
+        user_id=user1_id,
+        session_id="session_001",
+        app_tool_manager=app_tool_manager
+    )
+    print(f"✓ User 1 agent created with {len(agent1.tools)} toolsets")
+    print(f"  (App-level: 2, User-level: 1)")
+    
+    # User 2 doesn't configure any personal tools
+    user2_id = "user_002"
+    
+    # User 2 starts chat - gets ONLY app-level tools
+    agent2 = await api.create_agent_for_user(
+        user_id=user2_id,
+        session_id="session_002",
+        app_tool_manager=app_tool_manager
+    )
+    print(f"✓ User 2 agent created with {len(agent2.tools)} toolsets")
+    print(f"  (App-level: 2, User-level: 0)")
+    
+    print("\n" + "=" * 60)
+    print("Application-level tools are available to ALL users!")
+    print("=" * 60)
