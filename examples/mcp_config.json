@@ -1,0 +1,58 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "type": "stdio",
+      "enabled": true,
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/tmp"
+      ],
+      "timeout": 5.0,
+      "tool_filter": [
+        "read_file",
+        "write_file",
+        "list_directory"
+      ]
+    },
+    "google_maps": {
+      "type": "stdio",
+      "enabled": false,
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-google-maps"
+      ],
+      "env": {
+        "GOOGLE_MAPS_API_KEY": "your_api_key_here"
+      },
+      "timeout": 5.0
+    },
+    "local_sse_server": {
+      "type": "sse",
+      "enabled": true,
+      "url": "http://localhost:8000/mcp",
+      "headers": {
+        "Authorization": "Bearer token123"
+      },
+      "timeout": 10.0,
+      "sse_read_timeout": 300.0
+    },
+    "remote_mcp_server": {
+      "type": "http",
+      "enabled": true,
+      "url": "https://api.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer remote_token",
+        "X-API-Key": "api_key_123"
+      },
+      "timeout": 15.0,
+      "sse_read_timeout": 300.0,
+      "tool_filter": [
+        "search",
+        "query"
+      ]
+    }
+  }
+}

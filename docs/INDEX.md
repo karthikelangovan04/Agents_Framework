@@ -179,7 +179,17 @@ Manage application, user, and session-level state with automatic scoping and del
 ### 10. [ADK Web Interface Analysis](14-ADK-Web-Interface-Analysis.md) (`docs/14-ADK-Web-Interface-Analysis.md`)
 Detailed analysis of the ADK web interface: `adk web`, Dev UI, API endpoints, agent discovery, Runner/services, and library structure.
 
-### 11. [Other Packages](09-Other-Packages.md) (`docs/09-Other-Packages.md`)
+### 11. [MCP Tools Dynamic Loading](15-MCP-Tools-Dynamic-Loading.md) (`docs/15-MCP-Tools-Dynamic-Loading.md`)
+Comprehensive guide to MCP (Model Context Protocol) tools in Google ADK, including dynamic loading mechanisms, comparison with other applications (Claude/ChatGPT), and implementation patterns.
+
+**Topics Covered:**
+- MCP tool architecture
+- Dynamic loading mechanism
+- Comparison with Claude/ChatGPT approach
+- Implementation patterns for dynamic tools
+- Best practices and advanced patterns
+
+### 12. [Other Packages](09-Other-Packages.md) (`docs/09-Other-Packages.md`)
 Additional packages providing supporting functionality.
 
 **Topics Covered:**
@@ -193,6 +203,32 @@ Additional packages providing supporting functionality.
 - Events package
 - Telemetry package
 - Evaluation package
+
+## 🔧 Specialized Topics
+
+### [MCP Tools Dynamic Loading](15-MCP-Tools-Dynamic-Loading.md) (`docs/15-MCP-Tools-Dynamic-Loading.md`)
+Deep dive into how Google ADK handles MCP tools, including:
+- How dynamic loading works (lazy loading via `get_tools()`)
+- Comparison with Claude Desktop and ChatGPT approaches
+- Patterns for implementing dynamic tool configuration
+- Session-scoped and context-aware tool filtering
+- Best practices for production deployments
+
+### [MCP Dynamic Configuration and Server Management](16-MCP-Dynamic-Configuration-and-Server-Management.md) (`docs/16-MCP-Dynamic-Configuration-and-Server-Management.md`)
+Comprehensive guide to implementing Claude/Cursor-like dynamic MCP configuration:
+- How local stdio servers are automatically started
+- How remote SSE/HTTP servers work
+- Dynamic configuration system with JSON files
+- MCP marketplace integration
+- Complete working examples
+
+### [Per-User MCP Tool Management](17-Per-User-MCP-Tool-Management.md) (`docs/17-Per-User-MCP-Tool-Management.md`)
+Complete guide to implementing per-user MCP tool management like Claude/Cursor:
+- How each user can have their own MCP tools
+- Frontend-to-backend flow for tool configuration
+- User-level vs session-level tool management
+- Required Google ADK packages (Sessions, State Management)
+- Complete working examples with multiple users
 
 ## 🎯 Quick Reference Guide
 
@@ -221,6 +257,15 @@ Additional packages providing supporting functionality.
 
 **Understand how agents execute:**
 → [Runners Package - Example 1](10-Runners-Package.md#example-1-basic-runner-usage)
+
+**Use MCP tools dynamically:**
+→ [MCP Tools Dynamic Loading](15-MCP-Tools-Dynamic-Loading.md)
+
+**Configure MCP servers like Claude/Cursor:**
+→ [MCP Dynamic Configuration and Server Management](16-MCP-Dynamic-Configuration-and-Server-Management.md)
+
+**Implement per-user MCP tools:**
+→ [Per-User MCP Tool Management](17-Per-User-MCP-Tool-Management.md)
 
 **Manage state across scopes:**
 → [State Management - Example 1](11-State-Management.md#example-1-application-level-state)
