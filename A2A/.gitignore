@@ -1,0 +1,38 @@
+# Python A2A Virtual Environment
+# This directory contains the virtual environment created by uv
+
+# Ignore virtual environment directories
+bin/
+lib/
+lib64/
+include/
+share/
+pyvenv.cfg
+pip-selfcheck.json
+
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignore environment files
+.env
+.env.local
+.venv
+
+# Keep documentation and examples
+!docs/
+!examples/
+!*.md
+!*.py
+!.gitignore
+!README.md
