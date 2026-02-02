@@ -14,10 +14,29 @@ This document provides a comprehensive reference for the database schema used by
 
 `DatabaseSessionService` supports two schema versions:
 
-- **V0 Schema**: Legacy schema (deprecated)
-- **V1 Schema**: Latest schema with improved features (current default)
+- **V0 Schema**: Legacy schema (ADK 1.19.0 - 1.21.0)
+  - Events stored with individual columns (22 fields)
+  - Uses pickle serialization for `actions` field
+  - More complex but allows direct SQL queries on individual fields
+  
+- **V1 Schema**: Latest schema (ADK 1.22.0+)
+  - Events stored as JSON in single `event_data` column (7 fields)
+  - Uses JSON serialization (database-agnostic)
+  - Simpler schema, easier to maintain
 
 The service automatically detects and uses the appropriate schema version. New databases will use V1 schema by default.
+
+### Key Differences
+
+| Aspect | V0 Schema | V1 Schema |
+|--------|----------|-----------|
+| **Events Table Columns** | 22 columns | 7 columns |
+| **Event Storage** | Individual columns | Single JSON column |
+| **Actions Serialization** | Pickle (Python-specific) | JSON (universal) |
+| **Query Flexibility** | Can query individual fields | Query via JSON functions |
+| **Schema Complexity** | More complex | Simpler |
+| **Database Compatibility** | Works but pickle is Python-specific | Fully database-agnostic |
+| **Migration** | Legacy, no migration needed | Current default |
 
 ---
 
@@ -132,7 +151,43 @@ Stores conversation events (messages, tool calls, agent responses, etc.).
 events
 ```
 
-### Fields
+### Schema Versions
+
+The `events` table structure differs between V0 and V1 schemas:
+
+- **V0 Schema**: Stores event fields as individual columns (22 fields)
+- **V1 Schema**: Stores complete event data in a single JSON column (`event_data`)
+
+---
+
+### V0 Schema Fields (Individual Columns)
+
+| Field Name | Type | Constraints | Description |
+|------------|------|-------------|-------------|
+| `id` | VARCHAR(128) | PRIMARY KEY | Event ID (UUID) |
+| `app_name` | VARCHAR(128) | PRIMARY KEY, FOREIGN KEY | Application name |
+| `user_id` | VARCHAR(128) | PRIMARY KEY, FOREIGN KEY | User identifier |
+| `session_id` | VARCHAR(128) | PRIMARY KEY, FOREIGN KEY | Session ID |
+| `invocation_id` | VARCHAR(256) | | Invocation ID (groups related events) |
+| `author` | VARCHAR(256) | | Author of the event ('user' or agent name) |
+| `actions` | BYTEA/PICKLE | | EventActions object (pickle serialized) |
+| `long_running_tool_ids_json` | TEXT | NULLABLE | JSON array of long-running tool IDs |
+| `branch` | VARCHAR(256) | NULLABLE | Agent branch path (e.g., "agent1.agent2") |
+| `timestamp` | TIMESTAMP | DEFAULT `NOW()` | Event timestamp |
+| `content` | JSON/JSONB/TEXT | NULLABLE | Event content (messages, tool calls) |
+| `grounding_metadata` | JSON/JSONB/TEXT | NULLABLE | Grounding metadata |
+| `custom_metadata` | JSON/JSONB/TEXT | NULLABLE | Custom metadata dictionary |
+| `usage_metadata` | JSON/JSONB/TEXT | NULLABLE | Token usage metadata |
+| `citation_metadata` | JSON/JSONB/TEXT | NULLABLE | Citation metadata |
+| `partial` | BOOLEAN | NULLABLE | Whether content is partial (streaming) |
+| `turn_complete` | BOOLEAN | NULLABLE | Whether turn is complete |
+| `error_code` | VARCHAR(256) | NULLABLE | Error code if event represents an error |
+| `error_message` | TEXT | NULLABLE | Error message if event represents an error |
+| `interrupted` | BOOLEAN | NULLABLE | Whether generation was interrupted |
+| `input_transcription` | JSON/JSONB/TEXT | NULLABLE | Audio input transcription |
+| `output_transcription` | JSON/JSONB/TEXT | NULLABLE | Audio output transcription |
+
+### V1 Schema Fields (JSON Column)
 
 | Field Name | Type | Constraints | Description |
 |------------|------|-------------|-------------|
@@ -156,7 +211,41 @@ REFERENCES sessions(app_name, user_id, id)
 ON DELETE CASCADE
 ```
 
-### SQL Definition (PostgreSQL)
+### SQL Definition - V0 Schema (PostgreSQL)
+
+```sql
+CREATE TABLE events (
+    id VARCHAR(128) NOT NULL,
+    app_name VARCHAR(128) NOT NULL,
+    user_id VARCHAR(128) NOT NULL,
+    session_id VARCHAR(128) NOT NULL,
+    invocation_id VARCHAR(256),
+    author VARCHAR(256),
+    actions BYTEA,  -- Pickle serialized EventActions
+    long_running_tool_ids_json TEXT,
+    branch VARCHAR(256),
+    timestamp TIMESTAMP DEFAULT NOW(),
+    content JSONB,
+    grounding_metadata JSONB,
+    custom_metadata JSONB,
+    usage_metadata JSONB,
+    citation_metadata JSONB,
+    partial BOOLEAN,
+    turn_complete BOOLEAN,
+    error_code VARCHAR(256),
+    error_message TEXT,
+    interrupted BOOLEAN,
+    input_transcription JSONB,
+    output_transcription JSONB,
+    PRIMARY KEY (id, app_name, user_id, session_id),
+    FOREIGN KEY (app_name, user_id, session_id) 
+        REFERENCES sessions(app_name, user_id, id) 
+        ON DELETE CASCADE
+);
+```
+
+### SQL Definition - V1 Schema (PostgreSQL)
+
 ```sql
 CREATE TABLE events (
     id VARCHAR(128) NOT NULL,
@@ -165,7 +254,7 @@ CREATE TABLE events (
     session_id VARCHAR(128) NOT NULL,
     invocation_id VARCHAR(256),
     timestamp TIMESTAMP DEFAULT NOW(),
-    event_data JSONB,
+    event_data JSONB,  -- Complete Event object as JSON
     PRIMARY KEY (id, app_name, user_id, session_id),
     FOREIGN KEY (app_name, user_id, session_id) 
         REFERENCES sessions(app_name, user_id, id) 
@@ -173,7 +262,41 @@ CREATE TABLE events (
 );
 ```
 
-### SQL Definition (SQLite)
+### SQL Definition - V0 Schema (SQLite)
+
+```sql
+CREATE TABLE events (
+    id VARCHAR(128) NOT NULL,
+    app_name VARCHAR(128) NOT NULL,
+    user_id VARCHAR(128) NOT NULL,
+    session_id VARCHAR(128) NOT NULL,
+    invocation_id VARCHAR(256),
+    author VARCHAR(256),
+    actions BLOB,  -- Pickle serialized
+    long_running_tool_ids_json TEXT,
+    branch VARCHAR(256),
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    content TEXT,  -- JSON serialized
+    grounding_metadata TEXT,
+    custom_metadata TEXT,
+    usage_metadata TEXT,
+    citation_metadata TEXT,
+    partial BOOLEAN,
+    turn_complete BOOLEAN,
+    error_code VARCHAR(256),
+    error_message TEXT,
+    interrupted BOOLEAN,
+    input_transcription TEXT,
+    output_transcription TEXT,
+    PRIMARY KEY (id, app_name, user_id, session_id),
+    FOREIGN KEY (app_name, user_id, session_id) 
+        REFERENCES sessions(app_name, user_id, id) 
+        ON DELETE CASCADE
+);
+```
+
+### SQL Definition - V1 Schema (SQLite)
+
 ```sql
 CREATE TABLE events (
     id VARCHAR(128) NOT NULL,
@@ -182,7 +305,7 @@ CREATE TABLE events (
     session_id VARCHAR(128) NOT NULL,
     invocation_id VARCHAR(256),
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    event_data TEXT,
+    event_data TEXT,  -- Complete Event object as JSON
     PRIMARY KEY (id, app_name, user_id, session_id),
     FOREIGN KEY (app_name, user_id, session_id) 
         REFERENCES sessions(app_name, user_id, id) 
@@ -190,7 +313,41 @@ CREATE TABLE events (
 );
 ```
 
-### SQL Definition (MySQL)
+### SQL Definition - V0 Schema (MySQL)
+
+```sql
+CREATE TABLE events (
+    id VARCHAR(128) NOT NULL,
+    app_name VARCHAR(128) NOT NULL,
+    user_id VARCHAR(128) NOT NULL,
+    session_id VARCHAR(128) NOT NULL,
+    invocation_id VARCHAR(256),
+    author VARCHAR(256),
+    actions LONGBLOB,  -- Pickle serialized
+    long_running_tool_ids_json LONGTEXT,
+    branch VARCHAR(256),
+    timestamp DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+    content LONGTEXT,  -- JSON serialized
+    grounding_metadata LONGTEXT,
+    custom_metadata LONGTEXT,
+    usage_metadata LONGTEXT,
+    citation_metadata LONGTEXT,
+    partial BOOLEAN,
+    turn_complete BOOLEAN,
+    error_code VARCHAR(256),
+    error_message LONGTEXT,
+    interrupted BOOLEAN,
+    input_transcription LONGTEXT,
+    output_transcription LONGTEXT,
+    PRIMARY KEY (id, app_name, user_id, session_id),
+    FOREIGN KEY (app_name, user_id, session_id) 
+        REFERENCES sessions(app_name, user_id, id) 
+        ON DELETE CASCADE
+);
+```
+
+### SQL Definition - V1 Schema (MySQL)
+
 ```sql
 CREATE TABLE events (
     id VARCHAR(128) NOT NULL,
@@ -199,7 +356,7 @@ CREATE TABLE events (
     session_id VARCHAR(128) NOT NULL,
     invocation_id VARCHAR(256),
     timestamp DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
-    event_data LONGTEXT,
+    event_data LONGTEXT,  -- Complete Event object as JSON
     PRIMARY KEY (id, app_name, user_id, session_id),
     FOREIGN KEY (app_name, user_id, session_id) 
         REFERENCES sessions(app_name, user_id, id) 
@@ -207,9 +364,102 @@ CREATE TABLE events (
 );
 ```
 
-### Event Data Structure
+### V0 Schema Field Details
 
-The `event_data` column contains a JSON-serialized `Event` object with the following structure:
+#### `author`
+- **Type**: VARCHAR(256)
+- **Description**: Author of the event
+- **Values**: `"user"` or agent name (e.g., `"my_agent"`)
+- **Example**: `"user"`, `"assistant_agent"`
+
+#### `actions`
+- **Type**: BYTEA (PostgreSQL) / BLOB (SQLite) / LONGBLOB (MySQL)
+- **Description**: EventActions object serialized with pickle
+- **Contains**: State deltas, artifact deltas, compaction info, agent transfers, etc.
+- **Note**: Pickle serialization allows storing complex Python objects
+
+#### `long_running_tool_ids_json`
+- **Type**: TEXT
+- **Description**: JSON array of long-running tool call IDs
+- **Format**: `'["tool_id_1", "tool_id_2"]'`
+- **Example**: `'["func_call_abc123", "func_call_xyz789"]'`
+
+#### `branch`
+- **Type**: VARCHAR(256), NULLABLE
+- **Description**: Agent branch path indicating agent hierarchy
+- **Format**: `"agent1.agent2.agent3"` (dot-separated)
+- **Example**: `"orchestrator.math_agent"`, `NULL` (for root agent)
+
+#### `content`
+- **Type**: JSON/JSONB/TEXT
+- **Description**: Event content (messages, tool calls, responses)
+- **Structure**: 
+  ```json
+  {
+    "role": "user" | "model",
+    "parts": [
+      {"text": "..."},
+      {"function_call": {...}},
+      {"function_response": {...}}
+    ]
+  }
+  ```
+
+#### `usage_metadata`
+- **Type**: JSON/JSONB/TEXT
+- **Description**: Token usage information
+- **Structure**:
+  ```json
+  {
+    "prompt_token_count": 150,
+    "candidates_token_count": 200,
+    "total_token_count": 350
+  }
+  ```
+
+#### `grounding_metadata`
+- **Type**: JSON/JSONB/TEXT
+- **Description**: Grounding metadata for RAG/retrieval
+- **Contains**: Source citations, confidence scores, etc.
+
+#### `citation_metadata`
+- **Type**: JSON/JSONB/TEXT
+- **Description**: Citation metadata for referenced sources
+- **Contains**: Citation information, source URLs, etc.
+
+#### `custom_metadata`
+- **Type**: JSON/JSONB/TEXT
+- **Description**: Custom key-value metadata
+- **Format**: `{"key1": "value1", "key2": "value2"}`
+
+#### `partial`
+- **Type**: BOOLEAN, NULLABLE
+- **Description**: Whether content is partial (streaming mode)
+- **Values**: `true` (partial), `false` (complete), `NULL`
+
+#### `turn_complete`
+- **Type**: BOOLEAN, NULLABLE
+- **Description**: Whether the turn is complete (streaming mode)
+- **Values**: `true` (complete), `false` (incomplete), `NULL`
+
+#### `error_code` and `error_message`
+- **Type**: VARCHAR(256) / TEXT, NULLABLE
+- **Description**: Error information if event represents an error
+- **Example**: `error_code: "BLOCKED"`, `error_message: "Content was blocked"`
+
+#### `interrupted`
+- **Type**: BOOLEAN, NULLABLE
+- **Description**: Whether generation was interrupted (e.g., user interruption)
+- **Values**: `true` (interrupted), `false` (not interrupted), `NULL`
+
+#### `input_transcription` and `output_transcription`
+- **Type**: JSON/JSONB/TEXT, NULLABLE
+- **Description**: Audio transcription data
+- **Structure**: Transcription object with text, language, confidence, etc.
+
+### V1 Schema Event Data Structure
+
+The `event_data` column (V1 schema only) contains a JSON-serialized `Event` object with the following structure:
 
 ```json
 {
@@ -246,7 +496,36 @@ The `event_data` column contains a JSON-serialized `Event` object with the follo
 }
 ```
 
-### Example Data
+### Example Data - V0 Schema
+
+```json
+{
+  "id": "evt_abc123",
+  "app_name": "my_app",
+  "user_id": "user123",
+  "session_id": "session456",
+  "invocation_id": "inv_xyz789",
+  "author": "user",
+  "branch": null,
+  "timestamp": "2024-01-15 10:30:15",
+  "content": {
+    "role": "user",
+    "parts": [{"text": "Hello!"}]
+  },
+  "usage_metadata": {
+    "prompt_token_count": 10,
+    "candidates_token_count": 0,
+    "total_token_count": 10
+  },
+  "partial": false,
+  "turn_complete": true,
+  "actions": {...},  // Pickle serialized
+  "long_running_tool_ids_json": null
+}
+```
+
+### Example Data - V1 Schema
+
 ```json
 {
   "id": "evt_abc123",
@@ -256,21 +535,41 @@ The `event_data` column contains a JSON-serialized `Event` object with the follo
   "invocation_id": "inv_xyz789",
   "timestamp": "2024-01-15 10:30:15",
   "event_data": {
+    "id": "evt_abc123",
+    "invocation_id": "inv_xyz789",
     "author": "user",
     "content": {
       "role": "user",
       "parts": [{"text": "Hello!"}]
     },
-    "timestamp": 1705315215.123456
+    "actions": {...},
+    "timestamp": 1705315215.123456,
+    "usage_metadata": {...},
+    "partial": false,
+    "turn_complete": true
   }
 }
 ```
 
 ### Notes
+
+#### V0 Schema
+- **Individual Columns**: Each event field is stored in its own column
+- **Pickle Serialization**: `actions` field uses pickle (Python-specific)
+- **More Columns**: 22 columns total (more complex schema)
+- **Query Flexibility**: Can query individual fields directly (e.g., `WHERE author = 'user'`)
+- **Legacy**: Used in ADK versions 1.19.0 to 1.21.0
+
+#### V1 Schema
+- **JSON Column**: Complete event stored as JSON in `event_data` column
+- **Simpler Schema**: Only 7 columns (simpler structure)
+- **JSON Serialization**: All data uses JSON (database-agnostic)
+- **Modern**: Current default schema for new databases
+
+#### Common Notes
 - **Cascade Delete**: Events are automatically deleted when their parent session is deleted
-- **Event Data**: Complete event information is stored as JSON in `event_data` column
 - **Indexing**: Consider adding indexes on `session_id`, `timestamp`, and `invocation_id` for better query performance
-- **V1 Schema**: Uses JSON serialization for event data (simpler than V0's multiple columns)
+- **Schema Detection**: ADK automatically detects and uses the appropriate schema version
 
 ---
 
@@ -574,30 +873,107 @@ CREATE INDEX idx_user_states_user ON user_states(user_id);
 
 ---
 
+## Checking Your Schema Version
+
+### Method 1: Check Metadata Table (V1 Schema)
+
+If you have V1 schema, check the metadata table:
+
+```sql
+SELECT * FROM adk_internal_metadata WHERE key = 'schema_version';
+```
+
+**Result**:
+- `v1` = V1 schema (new, JSON-based)
+- No rows = V0 schema (legacy, individual columns)
+
+### Method 2: Check Events Table Structure
+
+Query your database to see which columns exist:
+
+**PostgreSQL**:
+```sql
+SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_name = 'events' 
+ORDER BY ordinal_position;
+```
+
+**SQLite**:
+```sql
+PRAGMA table_info(events);
+```
+
+**MySQL**:
+```sql
+DESCRIBE events;
+```
+
+**V0 Schema Indicators**:
+- Has `author` column
+- Has `actions` column (BYTEA/BLOB)
+- Has `content` column (separate from event_data)
+- Has `usage_metadata` column
+- Has `long_running_tool_ids_json` column
+- **Total: ~22 columns**
+
+**V1 Schema Indicators**:
+- Has `event_data` column (JSON)
+- No `author` column (it's inside event_data)
+- No `actions` column (it's inside event_data)
+- **Total: 7 columns**
+
+### Method 3: Count Columns
+
+```sql
+-- PostgreSQL
+SELECT COUNT(*) as column_count 
+FROM information_schema.columns 
+WHERE table_name = 'events';
+
+-- If column_count ≈ 22 → V0 Schema
+-- If column_count = 7 → V1 Schema
+```
+
 ## Schema Migration
 
 ### V0 to V1 Migration
 
 If you have an existing V0 schema database, ADK will:
-1. Detect the schema version
+1. Detect the schema version automatically
 2. Continue using V0 schema (backward compatible)
 3. New databases use V1 schema by default
 
+**Important**: V0 and V1 schemas are **not automatically migrated**. ADK will use whichever schema version your database already has.
+
 ### Manual Migration
 
-To migrate from V0 to V1:
+**Note**: Manual migration from V0 to V1 is complex and not officially supported. It requires:
+1. Extracting data from individual columns
+2. Reconstructing Event objects
+3. Serializing to JSON
+4. Creating new V1 tables
+5. Migrating data
 
-1. **Backup your database**
-2. **Check current schema version**:
-   ```sql
-   SELECT * FROM adk_internal_metadata WHERE key = 'schema_version';
-   ```
-3. **Update schema version** (if needed):
-   ```sql
-   INSERT INTO adk_internal_metadata (key, value) 
-   VALUES ('schema_version', 'v1')
-   ON CONFLICT (key) DO UPDATE SET value = 'v1';
-   ```
+**Recommendation**: 
+- If starting fresh, use V1 schema (default)
+- If you have V0 schema, continue using it (it's fully supported)
+- Only migrate if you have specific requirements
+
+### Creating New Database with V1 Schema
+
+To ensure V1 schema is used:
+
+```python
+from google.adk.sessions import DatabaseSessionService
+
+# Create new database - will use V1 schema by default
+session_service = DatabaseSessionService(
+    db_url="postgresql+asyncpg://user:pass@localhost/new_database"
+)
+
+# The metadata table will be created with schema_version = 'v1'
+```
 
 ---
 
@@ -648,6 +1024,47 @@ WHERE app_name = 'my_app' AND user_id = 'user123'
 GROUP BY session_id;
 ```
 
+### Query Events by Author (V0 Schema)
+```sql
+SELECT * FROM events 
+WHERE app_name = 'my_app' 
+  AND user_id = 'user123' 
+  AND session_id = 'session456'
+  AND author = 'user'
+ORDER BY timestamp ASC;
+```
+
+### Query Events with Token Usage (V0 Schema)
+```sql
+SELECT 
+    id,
+    author,
+    timestamp,
+    usage_metadata->>'prompt_token_count' as input_tokens,
+    usage_metadata->>'candidates_token_count' as output_tokens
+FROM events 
+WHERE app_name = 'my_app' 
+  AND user_id = 'user123' 
+  AND session_id = 'session456'
+  AND usage_metadata IS NOT NULL
+ORDER BY timestamp ASC;
+```
+
+### Query Events from Event Data (V1 Schema)
+```sql
+-- Extract author from event_data JSON
+SELECT 
+    id,
+    event_data->>'author' as author,
+    timestamp,
+    event_data->'usage_metadata'->>'prompt_token_count' as input_tokens
+FROM events 
+WHERE app_name = 'my_app' 
+  AND user_id = 'user123' 
+  AND session_id = 'session456'
+ORDER BY timestamp ASC;
+```
+
 ---
 
 ## Best Practices
@@ -661,6 +1078,35 @@ GROUP BY session_id;
 7. **State Prefixes**: Always use `app:` and `user:` prefixes for hierarchical state
 
 ---
+
+## Complete V0 Events Table Field Reference
+
+If you're using V0 schema, here are all 22 fields you'll see:
+
+| # | Field Name | Type | Nullable | Description |
+|---|------------|------|----------|-------------|
+| 1 | `id` | VARCHAR(128) | NO | Event ID (UUID) |
+| 2 | `app_name` | VARCHAR(128) | NO | Application name |
+| 3 | `user_id` | VARCHAR(128) | NO | User identifier |
+| 4 | `session_id` | VARCHAR(128) | NO | Session ID |
+| 5 | `invocation_id` | VARCHAR(256) | YES | Invocation ID |
+| 6 | `author` | VARCHAR(256) | YES | Author ('user' or agent name) |
+| 7 | `actions` | BYTEA/BLOB | YES | EventActions (pickle serialized) |
+| 8 | `long_running_tool_ids_json` | TEXT | YES | JSON array of tool IDs |
+| 9 | `branch` | VARCHAR(256) | YES | Agent branch path |
+| 10 | `timestamp` | TIMESTAMP | NO | Event timestamp |
+| 11 | `content` | JSON/JSONB/TEXT | YES | Event content |
+| 12 | `grounding_metadata` | JSON/JSONB/TEXT | YES | Grounding metadata |
+| 13 | `custom_metadata` | JSON/JSONB/TEXT | YES | Custom metadata |
+| 14 | `usage_metadata` | JSON/JSONB/TEXT | YES | Token usage metadata |
+| 15 | `citation_metadata` | JSON/JSONB/TEXT | YES | Citation metadata |
+| 16 | `partial` | BOOLEAN | YES | Partial content flag |
+| 17 | `turn_complete` | BOOLEAN | YES | Turn complete flag |
+| 18 | `error_code` | VARCHAR(256) | YES | Error code |
+| 19 | `error_message` | TEXT | YES | Error message |
+| 20 | `interrupted` | BOOLEAN | YES | Interrupted flag |
+| 21 | `input_transcription` | JSON/JSONB/TEXT | YES | Input audio transcription |
+| 22 | `output_transcription` | JSON/JSONB/TEXT | YES | Output audio transcription |
 
 ## Troubleshooting
 
@@ -690,6 +1136,14 @@ GROUP BY session_id;
 - Consider archiving old events
 - Use database-specific optimizations (e.g., PostgreSQL JSONB compression)
 
+### Issue: Seeing V0 Schema Instead of V1
+
+**Solution**: 
+- V0 schema is used if your database was created with an older ADK version
+- This is normal and expected - V0 schema is fully supported
+- To use V1 schema, create a new database (V1 is default for new databases)
+- ADK automatically detects and uses the correct schema version
+
 ---
 
 ## Summary
@@ -697,10 +1151,16 @@ GROUP BY session_id;
 | Table | Purpose | Key Fields | Relationships |
 |-------|---------|------------|---------------|
 | `sessions` | Session metadata and state | `app_name`, `user_id`, `id`, `state` | One-to-many with `events` |
-| `events` | Conversation events | `id`, `session_id`, `event_data`, `timestamp` | Many-to-one with `sessions` |
+| `events` (V0) | Conversation events | `id`, `session_id`, `author`, `content`, `actions`, `usage_metadata`, etc. (22 fields) | Many-to-one with `sessions` |
+| `events` (V1) | Conversation events | `id`, `session_id`, `event_data`, `timestamp` (7 fields) | Many-to-one with `sessions` |
 | `app_states` | Application-level state | `app_name`, `state` | None |
 | `user_states` | User-level state | `app_name`, `user_id`, `state` | None |
 | `adk_internal_metadata` | Schema version info | `key`, `value` | None (V1 only) |
+
+### Events Table Field Count
+
+- **V0 Schema**: 22 fields (individual columns)
+- **V1 Schema**: 7 fields (with JSON `event_data` containing all event information)
 
 ---
 
