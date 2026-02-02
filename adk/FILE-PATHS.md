@@ -2,6 +2,8 @@
 
 This document provides a complete reference of all documentation files, example files, and their locations.
 
+**Note**: This file is now located in the `adk/` directory. All paths are relative to this directory.
+
 ## 📚 Documentation Files
 
 All documentation files are located in the `docs/` directory:
@@ -41,6 +43,8 @@ All runnable example files are located in the `examples/` directory:
 |--------|-----------|---------|
 | Package Explorer | `explore_packages.py` | Explore all ADK packages |
 | Package Details | `get_package_details.py` | Get detailed package information |
+
+**Note**: These scripts are now located in the `adk/` directory.
 
 ## 📦 Complete Package Coverage
 

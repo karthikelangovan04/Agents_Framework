@@ -1,0 +1,25 @@
+# Python A2A Virtual Environment
+A2A/bin/
+A2A/lib/
+A2A/include/
+A2A/share/
+A2A/pyvenv.cfg
+A2A/.lock
+A2A/CACHEDIR.TAG
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Exploration outputs (optional - uncomment if you don't want to track)
+# a2a_exploration.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store

@@ -1,0 +1,21 @@
+# A2A SDK Virtual Environment
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Analysis outputs (optional - uncomment if you don't want to track)
+# a2a_sdk_comprehensive_analysis.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store

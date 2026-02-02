@@ -1,178 +1,113 @@
-# Google ADK A2A Explore
+# Google ADK & A2A Exploration Project
 
-A comprehensive exploration and documentation project for Google Agent Development Kit (ADK), featuring detailed documentation for each package with runnable examples.
+This repository contains comprehensive exploration and documentation for:
+1. **Google ADK** (Agent Development Kit)
+2. **Python A2A** (Python A2A library)
+3. **A2A SDK** (Official A2A SDK from PyPI)
 
-## 📋 Project Overview
+## Project Structure
 
-This project provides:
-- Complete documentation for all Google ADK packages
-- Runnable example agents demonstrating various features
-- Setup guides and best practices
-- Index page for easy navigation
+```
+Google-ADK-A2A-Explore/
+├── adk/                    # Google ADK
+│   ├── docs/              # ADK documentation
+│   ├── examples/          # ADK examples
+│   ├── .venv/            # ADK virtual environment
+│   ├── explore_packages.py      # Package exploration script
+│   ├── get_package_details.py   # Package details script
+│   ├── get_package_details_output.json
+│   └── FILE-PATHS.md     # File path reference
+│
+├── python_a2a/            # Python A2A Library
+│   ├── A2A/              # Python A2A virtual environment and docs
+│   ├── explore_a2a.py    # Exploration script
+│   └── ...
+│
+├── a2a_sdk/              # A2A SDK (Official)
+│   ├── docs/             # A2A SDK documentation
+│   ├── venv/             # A2A SDK virtual environment
+│   ├── analyze_a2a_sdk.py
+│   └── ...
+│
+└── [root files]
+```
 
-## 🚀 Quick Start
+## Quick Start
 
-### Prerequisites
+### Google ADK
 
-- Python 3.10 or higher
-- UV package manager
-- Google API key or Google Cloud credentials
-
-### Setup
-
-1. **Create virtual environment:**
 ```bash
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
-
-2. **Install Google ADK:**
-```bash
-uv pip install google-adk
-```
-
-3. **Set up authentication:**
-Create a `.env` file:
-```bash
-GOOGLE_API_KEY=your_api_key_here
-```
-
-4. **Run an example:**
-```bash
-python examples/simple_agent.py
-```
-
-## 📚 Documentation
-
-All documentation is located in the `docs/` directory:
-
-- **[INDEX.md](docs/INDEX.md)** - Start here! Complete index of all documentation
-- **[00-Setup-and-Installation.md](docs/00-Setup-and-Installation.md)** - Setup guide
-- **[01-Agents-Package.md](docs/01-Agents-Package.md)** - Agents documentation
-- **[02-Tools-Package.md](docs/02-Tools-Package.md)** - Tools documentation
-- **[04-A2A-Package.md](docs/04-A2A-Package.md)** - Agent-to-Agent documentation
-- **[05-Apps-Package.md](docs/05-Apps-Package.md)** - Apps documentation
-- **[06-Code-Executors-Package.md](docs/06-Code-Executors-Package.md)** - Code executors
-- **[07-Sessions-Package.md](docs/07-Sessions-Package.md)** - Session management
-- **[08-Memory-Package.md](docs/08-Memory-Package.md)** - Memory services
-- **[09-Other-Packages.md](docs/09-Other-Packages.md)** - Other packages
-
-## 📁 Project Structure
-
-```
-.
-├── docs/                    # Documentation files
-│   ├── INDEX.md            # Documentation index
-│   ├── 00-Setup-and-Installation.md
-│   ├── 01-Agents-Package.md
-│   ├── 02-Tools-Package.md
-│   ├── 04-A2A-Package.md
-│   ├── 05-Apps-Package.md
-│   ├── 06-Code-Executors-Package.md
-│   ├── 07-Sessions-Package.md
-│   ├── 08-Memory-Package.md
-│   └── 09-Other-Packages.md
-├── examples/                # Runnable example agents
-│   ├── simple_agent.py
-│   ├── tool_agent.py
-│   ├── multi_agent.py
-│   ├── weather_tool.py
-│   ├── multi_tool_agent.py
-│   ├── code_executor_agent.py
-│   ├── session_agent.py
-│   ├── memory_agent.py
-│   ├── web_app.py
-│   ├── remote_agent_server.py
-│   └── remote_agent_client.py
-├── .venv/                   # Virtual environment (created by uv)
-├── .env                     # Environment variables (create this)
-├── explore_packages.py      # Package exploration script
-├── get_package_details.py   # Package details script
-└── README.md                # This file
-```
-
-## 🎯 Examples
-
-### Simple Agent
-```bash
-python examples/simple_agent.py
-```
-
-### Agent with Tools
-```bash
-python examples/tool_agent.py
-```
-
-### Multi-Agent System
-```bash
-python examples/multi_agent.py
-```
-
-### Web Application
-```bash
-python examples/web_app.py
-# Then visit http://localhost:8000/docs
-```
-
-### Remote Agent Server
-```bash
-# Terminal 1: Start server
-python examples/remote_agent_server.py
-
-# Terminal 2: Start client
-python examples/remote_agent_client.py
-```
-
-## 🔧 Development Tools
-
-### Explore Packages
-```bash
+cd adk
+source .venv/bin/activate
+# See docs/INDEX.md for documentation
+# Run utility scripts:
 python explore_packages.py
+python get_package_details.py <package_name>
 ```
 
-### Get Package Details
+### Python A2A
+
 ```bash
-python get_package_details.py agents
+cd python_a2a
+python explore_a2a.py
+# See A2A/docs/ for documentation
 ```
 
-## 📖 Key Features Documented
+### A2A SDK
 
-- ✅ Agent creation and configuration
-- ✅ Tool integration and custom tools
-- ✅ Multi-agent systems
-- ✅ Agent-to-Agent (A2A) communication
-- ✅ Web applications with agents
-- ✅ Code execution capabilities
-- ✅ Session management
-- ✅ Memory services
-- ✅ Authentication setup
-- ✅ Best practices and patterns
+```bash
+cd a2a_sdk
+source venv/bin/activate
+python analyze_a2a_sdk.py
+# See docs/INDEX.md for documentation
+```
 
-## 🛠️ Technologies Used
+## Documentation
 
-- **Google ADK** - Agent Development Kit
-- **UV** - Fast Python package manager
-- **Python 3.10+** - Programming language
-- **FastAPI** - Web framework (via ADK Apps)
-- **Pydantic** - Data validation
+### Google ADK
+- **Location**: `adk/docs/`
+- **Index**: [adk/docs/INDEX.md](adk/docs/INDEX.md)
+- **Topics**: Agents, Tools, Sessions, Memory, A2A, Apps, etc.
 
-## 📝 Notes
+### Python A2A
+- **Location**: `python_a2a/A2A/docs/`
+- **Topics**: Core concepts, server/client implementation, workflows
 
-- All examples are designed to be runnable and educational
-- Documentation includes troubleshooting sections
-- Each package has multiple examples demonstrating different use cases
-- Examples use `gemini-1.5-flash` by default (fast and cost-effective)
+### A2A SDK
+- **Location**: `a2a_sdk/docs/`
+- **Index**: [a2a_sdk/docs/INDEX.md](a2a_sdk/docs/INDEX.md)
+- **Topics**: Client/Server, Context & Memory, Transports, Tasks, etc.
 
-## 🔗 Useful Links
+## Key Comparisons
 
-- [Google ADK Official Docs](https://google.github.io/adk-docs/)
-- [Google AI Studio](https://makersuite.google.com/)
-- [UV Documentation](https://github.com/astral-sh/uv)
+| Feature | Google ADK | Python A2A | A2A SDK |
+|---------|------------|-------------|---------|
+| **Package** | `google-adk` | `python_a2a` | `a2a-sdk` |
+| **Import** | `google.adk` | `python_a2a` | `a2a` |
+| **Context** | Session-based | Conversation-based | Context-based + Task-based |
+| **Memory** | MemoryService | Conversation storage | Task persistence |
+| **Protocol** | Built-in A2A | A2A protocol | JSON-RPC, REST, gRPC |
 
-## 📄 License
+## Analysis Results
 
-This project is for educational and documentation purposes.
+### A2A SDK Comprehensive Analysis
+- **83 modules** analyzed
+- **166 classes** documented
+- **2,896 methods** catalogued
+- **96 protobuf-generated types**
+
+See: `a2a_sdk/A2A_SDK_COMPREHENSIVE_ANALYSIS.md`
+
+## Context Retention Analysis
+
+Detailed analysis of how each framework manages context:
+- **ADK**: See `adk/docs/ADK-Memory-and-Session-Runtime-Trace.md`
+- **A2A SDK**: See `a2a_sdk/docs/04-Context-and-Memory.md`
+
+## Contributing
+
+Each directory is self-contained with its own documentation and examples.
 
 ---
 
-**Happy Coding with Google ADK! 🚀**
+**Last Updated:** February 2, 2026
