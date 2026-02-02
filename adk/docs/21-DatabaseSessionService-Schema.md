@@ -8,6 +8,19 @@
 
 This document provides a comprehensive reference for the database schema used by `DatabaseSessionService`. The schema is automatically created when you initialize a `DatabaseSessionService` instance.
 
+### Quick Answer: How Schema Version is Determined
+
+**Schema version is NOT based on ADK version** - it's based on your **database structure**:
+
+- ✅ **New Database** → Automatically uses **V1 schema** (default)
+- ✅ **Existing V0 Database** → Continues using **V0 schema** (auto-detected)
+- ✅ **Existing V1 Database** → Continues using **V1 schema** (auto-detected)
+- ❌ **Upgrading ADK** → Does NOT change your database schema
+
+**To Enable V1 Schema**:
+- **New database**: V1 is automatic (no action needed)
+- **Existing V0 database**: Use migration tool or create new database
+
 ---
 
 ## Schema Versions
@@ -24,7 +37,29 @@ This document provides a comprehensive reference for the database schema used by
   - Uses JSON serialization (database-agnostic)
   - Simpler schema, easier to maintain
 
-The service automatically detects and uses the appropriate schema version. New databases will use V1 schema by default.
+### Important: Schema Selection is NOT Based on ADK Version
+
+**Key Point**: The schema version used is **NOT determined by your ADK version**. Instead, it's determined by **your database structure**:
+
+1. **New Database** → Always uses **V1 schema** (default)
+2. **Existing Database** → Uses whatever schema it already has (V0 or V1)
+3. **ADK Version** → Only affects which schema is the "latest" default for new databases
+
+### How Schema Version is Determined
+
+ADK uses the following detection logic (in order):
+
+1. **Check `adk_internal_metadata` table**:
+   - If exists and has `schema_version` key → Use that version
+   - V1 schema databases have this table
+
+2. **Check `events` table structure**:
+   - If `events` table exists:
+     - Has `actions` column AND no `event_data` column → **V0 schema**
+     - Has `event_data` column → **V1 schema**
+
+3. **New database (no tables)**:
+   - Uses **V1 schema** (LATEST_SCHEMA_VERSION = "1")
 
 ### Key Differences
 
@@ -36,7 +71,8 @@ The service automatically detects and uses the appropriate schema version. New d
 | **Query Flexibility** | Can query individual fields | Query via JSON functions |
 | **Schema Complexity** | More complex | Simpler |
 | **Database Compatibility** | Works but pickle is Python-specific | Fully database-agnostic |
-| **Migration** | Legacy, no migration needed | Current default |
+| **Default for New DBs** | Legacy (old ADK versions) | Current (ADK 1.22.0+) |
+| **Detection Method** | Checks for `actions` column | Checks for `event_data` column or metadata table |
 
 ---
 
@@ -873,6 +909,93 @@ CREATE INDEX idx_user_states_user ON user_states(user_id);
 
 ---
 
+## How to Enable V1 Schema
+
+### For New Databases
+
+**V1 schema is automatically enabled** for new databases. Simply create a new database:
+
+```python
+from google.adk.sessions import DatabaseSessionService
+
+# Create new database - automatically uses V1 schema
+session_service = DatabaseSessionService(
+    db_url="postgresql+asyncpg://user:pass@localhost/new_database"
+)
+
+# First use will create V1 schema tables
+session = await session_service.create_session(
+    app_name="my_app",
+    user_id="user1",
+    session_id="session1"
+)
+```
+
+### For Existing V0 Databases
+
+**You cannot simply "enable" V1 schema on an existing V0 database**. The database structure is already set. You have two options:
+
+#### Option 1: Continue Using V0 (Recommended)
+
+V0 schema is fully supported and will continue to work. ADK automatically detects and uses it:
+
+```python
+# ADK automatically detects V0 schema and uses it
+session_service = DatabaseSessionService(
+    db_url="postgresql+asyncpg://user:pass@localhost/existing_v0_database"
+)
+# No action needed - V0 schema will be used automatically
+```
+
+#### Option 2: Migrate to V1 Schema
+
+To use V1 schema, you need to migrate your data. ADK provides a migration command:
+
+```bash
+# Use ADK CLI migration tool
+adk migrate session \
+  --source-db-url "postgresql+asyncpg://user:pass@localhost/v0_database" \
+  --target-db-url "postgresql+asyncpg://user:pass@localhost/v1_database"
+```
+
+**Note**: Migration creates a new database with V1 schema and copies data from V0 to V1.
+
+### Manual V1 Schema Setup
+
+If you want to manually ensure V1 schema:
+
+```python
+from google.adk.sessions import DatabaseSessionService
+from google.adk.sessions.schemas.v1 import StorageMetadata
+from sqlalchemy import select
+
+# Create service
+session_service = DatabaseSessionService(
+    db_url="postgresql+asyncpg://user:pass@localhost/my_database"
+)
+
+# Force table creation (will use V1 if new database)
+async with session_service.database_session_factory() as sql_session:
+    # Check if metadata table exists
+    stmt = select(StorageMetadata).where(
+        StorageMetadata.key == "schema_version"
+    )
+    result = await sql_session.execute(stmt)
+    metadata = result.scalars().first()
+    
+    if not metadata:
+        # Set schema version to V1
+        metadata = StorageMetadata(
+            key="schema_version",
+            value="1"
+        )
+        sql_session.add(metadata)
+        await sql_session.commit()
+        print("V1 schema enabled")
+    else:
+        print(f"Current schema version: {metadata.value}")
+```
+
 ## Checking Your Schema Version
 
 ### Method 1: Check Metadata Table (V1 Schema)
@@ -884,7 +1007,7 @@ SELECT * FROM adk_internal_metadata WHERE key = 'schema_version';
 ```
 
 **Result**:
-- `v1` = V1 schema (new, JSON-based)
+- `1` = V1 schema (new, JSON-based)
 - No rows = V0 schema (legacy, individual columns)
 
 ### Method 2: Check Events Table Structure
@@ -935,44 +1058,150 @@ WHERE table_name = 'events';
 -- If column_count = 7 → V1 Schema
 ```
 
+### Method 4: Check for Specific Columns
+
+```sql
+-- Check if V0 schema (has actions column)
+SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'events' AND column_name = 'actions'
+) as has_actions_column;
+
+-- Check if V1 schema (has event_data column)
+SELECT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'events' AND column_name = 'event_data'
+) as has_event_data_column;
+
+-- Results:
+-- has_actions_column = true, has_event_data_column = false → V0 Schema
+-- has_actions_column = false, has_event_data_column = true → V1 Schema
+```
+
+## Schema Version Detection Logic
+
+ADK uses the following logic to determine which schema version to use:
+
+```python
+# Simplified detection logic (from _schema_check_utils.py)
+
+def detect_schema_version(database):
+    # Step 1: Check metadata table (V1 schema has this)
+    if has_table("adk_internal_metadata"):
+        version = query("SELECT value FROM adk_internal_metadata WHERE key='schema_version'")
+        if version:
+            return version  # "1" for V1, "0" for V0
+    
+    # Step 2: Check events table structure
+    if has_table("events"):
+        columns = get_columns("events")
+        if "actions" in columns and "event_data" not in columns:
+            return "0"  # V0 schema (has actions column)
+        elif "event_data" in columns:
+            return "1"  # V1 schema (has event_data column)
+    
+    # Step 3: New database - use latest
+    return "1"  # LATEST_SCHEMA_VERSION
+```
+
+### Schema Selection Flow
+
+```
+Database Connection
+    ↓
+Does adk_internal_metadata table exist?
+    ├─ YES → Read schema_version value
+    │         ├─ "1" → Use V1 schema
+    │         └─ "0" → Use V0 schema
+    │
+    └─ NO → Check events table structure
+              ├─ Has "actions" column? → V0 schema
+              ├─ Has "event_data" column? → V1 schema
+              └─ No events table? → New DB → V1 schema (default)
+```
+
 ## Schema Migration
 
 ### V0 to V1 Migration
 
 If you have an existing V0 schema database, ADK will:
-1. Detect the schema version automatically
-2. Continue using V0 schema (backward compatible)
-3. New databases use V1 schema by default
+1. **Automatically detect** the schema version on first connection
+2. **Continue using V0 schema** (backward compatible)
+3. **Not migrate automatically** - your database structure remains unchanged
 
-**Important**: V0 and V1 schemas are **not automatically migrated**. ADK will use whichever schema version your database already has.
+**Important**: 
+- Schema version is **database-specific**, not ADK version-specific
+- Upgrading ADK does NOT change your database schema
+- V0 schema databases continue to work with newer ADK versions
 
-### Manual Migration
+### Using ADK CLI Migration Tool
 
-**Note**: Manual migration from V0 to V1 is complex and not officially supported. It requires:
-1. Extracting data from individual columns
-2. Reconstructing Event objects
-3. Serializing to JSON
-4. Creating new V1 tables
-5. Migrating data
+ADK provides a CLI tool to migrate from V0 to V1:
+
+```bash
+# Install ADK CLI (if not already installed)
+pip install google-adk[cli]
+
+# Migrate database
+adk migrate session \
+  --source-db-url "postgresql+asyncpg://user:pass@localhost/v0_database" \
+  --target-db-url "postgresql+asyncpg://user:pass@localhost/v1_database"
+```
+
+**What Migration Does**:
+1. Creates new V1 schema database
+2. Copies all sessions, events, and state from V0 to V1
+3. Converts event data from individual columns to JSON `event_data`
+4. Preserves all data and relationships
+
+### Manual Migration (Not Recommended)
+
+**Note**: Manual migration is complex and error-prone. Use the CLI tool instead.
+
+If you must do it manually:
+1. Create new database with V1 schema
+2. Extract data from V0 columns
+3. Reconstruct Event objects
+4. Serialize to JSON for `event_data` column
+5. Copy sessions, app_states, user_states
+6. Verify data integrity
 
 **Recommendation**: 
-- If starting fresh, use V1 schema (default)
-- If you have V0 schema, continue using it (it's fully supported)
-- Only migrate if you have specific requirements
+- ✅ **Use ADK CLI migration tool** (recommended)
+- ✅ If starting fresh, V1 schema is automatic (default)
+- ✅ If you have V0 schema, continue using it (fully supported)
+- ❌ Don't manually migrate unless absolutely necessary
 
 ### Creating New Database with V1 Schema
 
-To ensure V1 schema is used:
+V1 schema is **automatically used** for new databases:
 
 ```python
 from google.adk.sessions import DatabaseSessionService
 
-# Create new database - will use V1 schema by default
+# Create new database - automatically uses V1 schema
 session_service = DatabaseSessionService(
     db_url="postgresql+asyncpg://user:pass@localhost/new_database"
 )
 
-# The metadata table will be created with schema_version = 'v1'
+# First operation creates V1 schema tables
+session = await session_service.create_session(
+    app_name="my_app",
+    user_id="user1",
+    session_id="session1"
+)
+
+# Verify V1 schema was created
+async with session_service.database_session_factory() as sql_session:
+    from google.adk.sessions.schemas.v1 import StorageMetadata
+    from sqlalchemy import select
+    
+    stmt = select(StorageMetadata).where(
+        StorageMetadata.key == "schema_version"
+    )
+    result = await sql_session.execute(stmt)
+    metadata = result.scalars().first()
+    print(f"Schema version: {metadata.value}")  # Should print "1"
 ```
 
 ---
