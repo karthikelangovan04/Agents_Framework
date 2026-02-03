@@ -21,8 +21,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setToken(auth.getToken());
-    setUser(auth.getUser());
+    const savedToken = auth.getToken();
+    const savedUser = auth.getUser();
+    setToken(savedToken);
+    setUser(savedUser);
+    
+    // Restore user cookie on page load if user is logged in
+    if (savedUser && typeof document !== "undefined") {
+      document.cookie = `copilot_adk_user_id=${savedUser.user_id}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+      console.log(`🔄 RESTORE: Set user cookie from localStorage - copilot_adk_user_id=${savedUser.user_id}`);
+    }
+    
     setLoading(false);
   }, []);
 
@@ -31,8 +40,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     auth.setUser(u);
     setToken(t);
     setUser(u);
+    
+    // Set user cookie IMMEDIATELY on login (critical for AG-UI)
     if (typeof document !== "undefined") {
-      document.cookie = `copilot_adk_user_id=${encodeURIComponent(u.user_id)}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+      document.cookie = `copilot_adk_user_id=${u.user_id}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+      console.log(`🔐 LOGIN: Set user cookie - copilot_adk_user_id=${u.user_id}`);
     }
   };
 

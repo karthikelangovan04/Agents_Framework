@@ -3,9 +3,11 @@ FastAPI app: auth, session APIs, and AG-UI endpoint for CopilotKit.
 Parameterized for dev and Cloud Run via config.
 """
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Any
 
 from fastapi import FastAPI, Depends, HTTPException, Request, Header
+from typing import Any
+from ag_ui.core import RunAgentInput
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -17,9 +19,11 @@ from db import init_db, close_db, get_pool, get_user_by_username, create_user
 # Optional: ag-ui-adk for CopilotKit; fallback if not installed
 try:
     from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+    from ag_ui.core import RunAgentInput
     HAS_AG_UI = True
 except ImportError:
     HAS_AG_UI = False
+    RunAgentInput = None  # type: ignore
 
 app = FastAPI(title="Copilot ADK API", version="0.1.0")
 app.add_middleware(
@@ -160,9 +164,57 @@ async def create_session(user_id: str = Depends(get_current_user_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# --- AG-UI Header Extraction Functions ---
+
+async def extract_user_and_session(request: Request, input_data: RunAgentInput) -> dict[str, Any]:
+    """Extract X-User-Id and X-Session-Id from headers into state.
+    
+    This allows ADKAgent to access user_id via user_id_extractor.
+    """
+    state = {}
+    user_id = request.headers.get("X-User-Id")
+    session_id = request.headers.get("X-Session-Id")
+    
+    print(f"🔍 Extracting headers: X-User-Id={user_id}, X-Session-Id={session_id[:8] if session_id else 'None'}...")
+    
+    if user_id:
+        state["_ag_ui_user_id"] = user_id
+        print(f"✅ Set state._ag_ui_user_id = {user_id}")
+    if session_id:
+        state["_ag_ui_session_id"] = session_id
+        print(f"✅ Set state._ag_ui_session_id = {session_id[:8]}...")
+    
+    return state
+
+
+def extract_user_from_state(input: RunAgentInput) -> str:
+    """Extract user ID from state (set by extract_user_and_session).
+    
+    This is called by ADKAgent._get_user_id() to resolve the user ID.
+    """
+    if isinstance(input.state, dict):
+        user_id = input.state.get("_ag_ui_user_id")
+        if user_id:
+            print(f"✅ user_id_extractor: Found user_id={user_id} in state")
+            return str(user_id)
+    
+    # Fallback to thread_user
+    fallback = f"thread_user_{input.thread_id}"
+    print(f"⚠️ user_id_extractor: No user_id in state, falling back to {fallback}")
+    return fallback
+
+
+# Add middleware to log headers
+@app.middleware("http")
+async def log_ag_ui_headers(request, call_next):
+    if request.url.path == "/ag-ui":
+        user_id = request.headers.get("X-User-Id", "NOT_SET")
+        session_id = request.headers.get("X-Session-Id", "NOT_SET")
+        print(f"🔍 Backend /ag-ui: X-User-Id={user_id}, X-Session-Id={session_id[:8] if session_id != 'NOT_SET' else 'NOT_SET'}...")
+    response = await call_next(request)
+    return response
+
 # --- AG-UI endpoint for CopilotKit ---
-# CopilotKit frontend sends X-User-Id and X-Session-Id so each request uses the right user/session.
-# We create an ADKAgent per request with those values when possible; otherwise use defaults.
 if HAS_AG_UI:
     # ADKAgent with Postgres session service
     # Note: user_id/session_id are handled per-request by the AG-UI protocol, not at init
@@ -170,19 +222,28 @@ if HAS_AG_UI:
         default_adk_agent = ADKAgent(
             adk_agent=agent,
             app_name=APP_NAME,
+            user_id_extractor=extract_user_from_state,  # ← Extract user from state
             session_timeout_seconds=SESSION_TIMEOUT_SECONDS,
             use_in_memory_services=False,
             session_service=session_service,
         )
-    except TypeError:
+        print("✅ ADKAgent initialized with Postgres session service + user_id_extractor")
+    except TypeError as e:
         # Fallback if session_service not supported
+        print(f"⚠️ ADKAgent fallback to in-memory services: {e}")
         default_adk_agent = ADKAgent(
             adk_agent=agent,
             app_name=APP_NAME,
+            user_id_extractor=extract_user_from_state,  # ← Extract user from state
             session_timeout_seconds=SESSION_TIMEOUT_SECONDS,
             use_in_memory_services=True,
         )
-    add_adk_fastapi_endpoint(app, default_adk_agent, path="/ag-ui")
+    add_adk_fastapi_endpoint(
+        app, 
+        default_adk_agent, 
+        path="/ag-ui",
+        extract_state_from_request=extract_user_and_session  # ← Extract headers into state
+    )
 else:
     @app.get("/ag-ui")
     async def ag_ui_placeholder():

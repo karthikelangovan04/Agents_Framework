@@ -117,6 +117,7 @@ export default function ChatPage() {
     // Set user cookie synchronously
     if (typeof document !== "undefined") {
       document.cookie = `copilot_adk_user_id=${user.user_id}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+      console.log(`🍪 SET USER COOKIE: copilot_adk_user_id=${user.user_id}`);
       setCookiesReady(true);
     }
   }, [user]);
@@ -182,6 +183,7 @@ export default function ChatPage() {
     // Set session cookie synchronously
     if (typeof document !== "undefined") {
       document.cookie = `copilot_adk_session_id=${currentSessionId}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+      console.log(`🍪 SET SESSION COOKIE: copilot_adk_session_id=${currentSessionId.slice(0, 8)}...`);
     }
     setUserAndSessionCookies(user.user_id, currentSessionId).catch(() => {});
   }, [currentSessionId, user]);
@@ -226,7 +228,11 @@ export default function ChatPage() {
   }
 
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+    <CopilotKit 
+      key={currentSessionId} 
+      runtimeUrl="/api/copilotkit" 
+      agent="my_agent"
+    >
       <div style={styles.layout}>
         <aside style={styles.sidebar}>
           <div style={styles.sidebarHeader}>

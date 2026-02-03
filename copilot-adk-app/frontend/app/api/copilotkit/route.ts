@@ -12,6 +12,9 @@ export async function POST(req: NextRequest) {
   const userId = req.cookies.get("copilot_adk_user_id")?.value || "default";
   const sessionId = req.cookies.get("copilot_adk_session_id")?.value || "default";
 
+  console.log(`🔌 CopilotKit API: userId=${userId}, sessionId=${sessionId?.slice(0, 8)}...`);
+  console.log(`🍪 Cookies received:`, req.cookies.getAll().map(c => `${c.name}=${c.value.slice(0, 20)}`));
+
   const serviceAdapter = new ExperimentalEmptyAdapter();
   const runtime = new CopilotRuntime({
     agents: {
