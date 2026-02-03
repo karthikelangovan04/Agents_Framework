@@ -1,0 +1,29 @@
+{
+  "name": "copilot-adk-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@copilotkit/react-core": "^1.51.0",
+    "@copilotkit/react-ui": "^1.51.0",
+    "@copilotkit/runtime": "^1.51.0",
+    "@ag-ui/client": "^0.0.44",
+    "next": "14.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "typescript": "^5"
+  },
+  "overrides": {
+    "@ag-ui/client": "^0.0.44"
+  }
+}
