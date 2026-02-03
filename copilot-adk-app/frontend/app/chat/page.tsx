@@ -3,7 +3,14 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { listSessions, createSession, setUserAndSessionCookies, SessionItem } from "@/lib/api";
+import { 
+  listSessions, 
+  createSession, 
+  setUserAndSessionCookies, 
+  getSessionHistory, 
+  SessionItem, 
+  SessionHistory 
+} from "@/lib/api";
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
@@ -92,6 +99,8 @@ export default function ChatPage() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [cookiesReady, setCookiesReady] = useState(false);
+  const [sessionHistory, setSessionHistory] = useState<SessionHistory | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const initializedRef = useRef(false);
   const redirectedRef = useRef(false);
   const currentUserRef = useRef<number | null>(null);
@@ -180,12 +189,33 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!currentSessionId || !user) return;
+    
     // Set session cookie synchronously
     if (typeof document !== "undefined") {
       document.cookie = `copilot_adk_session_id=${currentSessionId}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
       console.log(`🍪 SET SESSION COOKIE: copilot_adk_session_id=${currentSessionId.slice(0, 8)}...`);
     }
     setUserAndSessionCookies(user.user_id, currentSessionId).catch(() => {});
+    
+    // Load session history
+    const loadHistory = async () => {
+      setHistoryLoading(true);
+      console.log(`📚 Loading history for session: ${currentSessionId.slice(0, 8)}...`);
+      
+      const history = await getSessionHistory(currentSessionId, user.user_id);
+      
+      if (history && history.threadExists) {
+        console.log(`✅ Loaded ${history.messages.length} messages from session`);
+        setSessionHistory(history);
+      } else {
+        console.log(`📝 New session - no previous history`);
+        setSessionHistory(null);
+      }
+      
+      setHistoryLoading(false);
+    };
+    
+    loadHistory();
   }, [currentSessionId, user]);
 
   async function handleNewChat() {
@@ -229,7 +259,8 @@ export default function ChatPage() {
 
   return (
     <CopilotKit 
-      key={currentSessionId} 
+      key={currentSessionId}
+      threadId={currentSessionId || undefined}
       runtimeUrl="/api/copilotkit" 
       agent="my_agent"
     >
@@ -272,9 +303,45 @@ export default function ChatPage() {
             {currentSessionId ? `Session ${currentSessionId.slice(0, 8)}…` : "Select or start a chat"}
           </header>
           <div style={styles.mainContent}>
-            <p style={{ margin: 0, color: "var(--foreground)", fontSize: 14 }}>
-              Use the chat panel on the right to talk to the assistant. Messages are stored per session; switching chats loads that conversation&apos;s context.
-            </p>
+            {historyLoading ? (
+              <p style={{ color: "var(--foreground)", fontSize: 14 }}>Loading conversation history...</p>
+            ) : sessionHistory && sessionHistory.messages.length > 0 ? (
+              <div>
+                <p style={{ margin: "0 0 1rem 0", color: "var(--muted-foreground)", fontSize: 13, fontStyle: "italic" }}>
+                  💬 Previous conversation ({sessionHistory.messages.length} messages):
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  {sessionHistory.messages.map((msg, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: "0.75rem",
+                        borderRadius: 8,
+                        background: msg.role === "user" ? "var(--primary)" : "var(--card)",
+                        color: msg.role === "user" ? "white" : "var(--foreground)",
+                        alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
+                        maxWidth: "80%",
+                        fontSize: 14,
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 4, opacity: 0.8 }}>
+                        {msg.role === "user" ? "You" : "Assistant"}
+                      </div>
+                      <div style={{ whiteSpace: "pre-wrap" }}>{msg.content}</div>
+                    </div>
+                  ))}
+                </div>
+                <p style={{ margin: "2rem 0 0 0", color: "var(--muted-foreground)", fontSize: 13, fontStyle: "italic" }}>
+                  Continue the conversation in the chat panel →
+                </p>
+              </div>
+            ) : (
+              <p style={{ margin: 0, color: "var(--foreground)", fontSize: 14 }}>
+                {currentSessionId 
+                  ? "No previous messages in this session. Start chatting using the panel on the right →"
+                  : "Select or start a chat to begin. Messages are stored per session."}
+              </p>
+            )}
           </div>
         </div>
         <CopilotSidebar

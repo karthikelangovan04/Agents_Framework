@@ -69,3 +69,65 @@ export async function setUserAndSessionCookies(
     body: JSON.stringify({ user_id: userId, session_id: sessionId }),
   });
 }
+
+/**
+ * Fetch session history (state and messages) from the backend
+ */
+export interface SessionHistory {
+  threadId: string;
+  threadExists: boolean;
+  state: Record<string, any>;
+  messages: Array<{
+    role: string;
+    content: string;
+  }>;
+}
+
+export async function getSessionHistory(
+  sessionId: string,
+  userId: number
+): Promise<SessionHistory | null> {
+  try {
+    // In AG-UI protocol, threadId is used to lookup sessions
+    // We use sessionId as threadId (configured in CopilotKit threadId prop)
+    const res = await fetch(`${getApiUrl()}/agents/state`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        threadId: sessionId, // Use sessionId as threadId
+        appName: "copilot_adk_app",
+        userId: String(userId),
+      }),
+    });
+
+    if (!res.ok) {
+      console.error(`Failed to fetch session history: ${res.status}`);
+      return null;
+    }
+
+    const data = await res.json();
+    
+    // If thread doesn't exist, it might be a new session or not yet used
+    if (!data.threadExists) {
+      console.log(`Session ${sessionId.slice(0, 8)}... has no messages yet (new session)`);
+      return {
+        threadId: sessionId,
+        threadExists: false,
+        state: {},
+        messages: [],
+      };
+    }
+
+    return {
+      threadId: data.threadId,
+      threadExists: data.threadExists,
+      state: JSON.parse(data.state || "{}"),
+      messages: JSON.parse(data.messages || "[]"),
+    };
+  } catch (error) {
+    console.error("Error fetching session history:", error);
+    return null;
+  }
+}
