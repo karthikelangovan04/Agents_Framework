@@ -6,7 +6,8 @@ Full-stack demo: **ADK Python agent** with **Postgres** sessions, **multi-user a
 🧪 **Testing:** [TESTING.md](TESTING.md)  
 📊 **Status:** [STATUS.md](STATUS.md) - All tests passing ✅  
 🤖 **Model Guide:** [MODEL-OPTIMIZATION.md](MODEL-OPTIMIZATION.md) - Optimized for your rate limits  
-🔒 **Security:** [SECURITY-REPORT.md](SECURITY-REPORT.md) - Safe to commit to GitHub ✅
+🔒 **Security:** [SECURITY-REPORT.md](SECURITY-REPORT.md) - Safe to commit to GitHub ✅  
+🔧 **Troubleshooting:** [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Common issues and fixes
 
 ## Features
 

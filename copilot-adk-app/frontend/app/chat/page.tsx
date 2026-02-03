@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { listSessions, createSession, setSessionCookie, SessionItem } from "@/lib/api";
+import { listSessions, createSession, setUserAndSessionCookies, SessionItem } from "@/lib/api";
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
@@ -91,8 +91,10 @@ export default function ChatPage() {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [cookiesReady, setCookiesReady] = useState(false);
   const initializedRef = useRef(false);
   const redirectedRef = useRef(false);
+  const currentUserRef = useRef<number | null>(null);
 
   // Check auth and redirect if needed
   useEffect(() => {
@@ -105,12 +107,33 @@ export default function ChatPage() {
     }
   }, [user, token, loading, router]);
 
-  // Load sessions only once when component mounts and user is authenticated
+  // Set user cookie IMMEDIATELY when user is available (before CopilotKit connects)
+  useEffect(() => {
+    if (!user) {
+      setCookiesReady(false);
+      return;
+    }
+    
+    // Set user cookie synchronously
+    if (typeof document !== "undefined") {
+      document.cookie = `copilot_adk_user_id=${user.user_id}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+      setCookiesReady(true);
+    }
+  }, [user]);
+
+  // Load sessions when user changes or component mounts
   useEffect(() => {
     if (loading) return;
     if (!user || !token) return;
 
-    // Prevent running multiple times
+    // Reset if user changed
+    if (currentUserRef.current !== user.user_id) {
+      initializedRef.current = false;
+      currentUserRef.current = user.user_id;
+      setSessionsLoading(true);
+    }
+
+    // Prevent running multiple times for same user
     if (initializedRef.current) return;
     initializedRef.current = true;
 
@@ -134,7 +157,11 @@ export default function ChatPage() {
         if (list.length > 0) {
           const first = list[0];
           setCurrentSessionId(first.id);
-          await setSessionCookie(first.id);
+          // Set session cookie synchronously
+          if (typeof document !== "undefined") {
+            document.cookie = `copilot_adk_session_id=${first.id}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+          }
+          await setUserAndSessionCookies(user.user_id, first.id).catch(() => {});
         }
       } catch (err) {
         if (mounted) setSessions([]);
@@ -151,33 +178,46 @@ export default function ChatPage() {
   }, [user, token, loading]); // Only depends on user, token, and loading
 
   useEffect(() => {
-    if (!currentSessionId) return;
-    setSessionCookie(currentSessionId);
-  }, [currentSessionId]);
+    if (!currentSessionId || !user) return;
+    // Set session cookie synchronously
+    if (typeof document !== "undefined") {
+      document.cookie = `copilot_adk_session_id=${currentSessionId}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+    }
+    setUserAndSessionCookies(user.user_id, currentSessionId).catch(() => {});
+  }, [currentSessionId, user]);
 
   async function handleNewChat() {
-    if (!token) return;
+    if (!token || !user) return;
     try {
       const newSession = await createSession(token);
       setSessions((prev) => [newSession, ...prev]);
       setCurrentSessionId(newSession.id);
-      await setSessionCookie(newSession.id);
+      // Set session cookie synchronously
+      if (typeof document !== "undefined") {
+        document.cookie = `copilot_adk_session_id=${newSession.id}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+      }
+      await setUserAndSessionCookies(user.user_id, newSession.id).catch(() => {});
     } catch {
       // ignore
     }
   }
 
   async function handleSelectSession(sessionId: string) {
+    if (!user) return;
     setCurrentSessionId(sessionId);
-    await setSessionCookie(sessionId);
+    // Set session cookie synchronously
+    if (typeof document !== "undefined") {
+      document.cookie = `copilot_adk_session_id=${sessionId}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+    }
+    await setUserAndSessionCookies(user.user_id, sessionId).catch(() => {});
   }
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
     router.replace("/login");
   }
 
-  if (loading || !user) {
+  if (loading || !user || !cookiesReady) {
     return (
       <main style={{ padding: "2rem", textAlign: "center" }}>
         <p>Loading...</p>

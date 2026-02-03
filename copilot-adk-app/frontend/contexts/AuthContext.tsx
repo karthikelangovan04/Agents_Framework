@@ -10,7 +10,7 @@ type AuthContextType = {
   token: string | null;
   loading: boolean;
   login: (token: string, user: UserInfo) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -36,8 +36,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
-    auth.logout();
+  const logout = async () => {
+    await auth.logout();
     setToken(null);
     setUser(null);
   };

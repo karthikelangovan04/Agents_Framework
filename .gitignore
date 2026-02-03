@@ -11,6 +11,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!copilot-adk-app/frontend/lib/
 lib64/
 parts/
 sdist/
@@ -70,3 +71,6 @@ a2a_sdk_comprehensive_analysis.json
 # OS
 .DS_Store
 Thumbs.db
+
+# CopilotKit exported data (CSV/JSON exports)
+Copliot Kit/
