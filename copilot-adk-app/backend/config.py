@@ -41,7 +41,9 @@ CORS_ORIGINS_STR = os.getenv("CORS_ORIGINS", "http://localhost:3000")
 CORS_ORIGINS = [o.strip() for o in CORS_ORIGINS_STR.split(",") if o.strip()]
 
 # AG-UI / Session
-SESSION_TIMEOUT_SECONDS = int(os.getenv("SESSION_TIMEOUT_SECONDS", "3600"))
+# Default: 7 days (604800 seconds) - sessions persist for a week
+# Set to 0 or very large number to effectively disable cleanup
+SESSION_TIMEOUT_SECONDS = int(os.getenv("SESSION_TIMEOUT_SECONDS", "604800"))
 
 # Gemini model (use simple names for ADK)
 # Best options: gemini-2.5-flash (1K RPM), gemini-2.0-flash (2K RPM)
