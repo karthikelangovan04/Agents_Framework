@@ -147,20 +147,34 @@ async def list_sessions(user_id: str = Depends(get_current_user_id)):
 
 @app.post("/api/sessions", response_model=SessionItem)
 async def create_session(user_id: str = Depends(get_current_user_id)):
-    """Create a new chat session (new conversation)."""
+    """Create a new chat session (new conversation) with proper AG-UI state."""
     session_id = str(uuid.uuid4())
     try:
+        # Create session with initial AG-UI state
+        # This ensures ADK SessionManager can find it when user sends first message
+        initial_state = {
+            "_ag_ui_user_id": user_id,
+            "_ag_ui_app_name": APP_NAME,
+            "_ag_ui_thread_id": session_id,  # thread_id = session_id
+            "_ag_ui_session_id": session_id,
+        }
+        
         session = await session_service.create_session(
             app_name=APP_NAME,
             user_id=user_id,
             session_id=session_id,
+            state=initial_state,  # Initialize with AG-UI metadata
         )
+        
+        print(f"✅ Created session {session_id[:8]}... with initial state for user {user_id}")
+        
         return SessionItem(
             id=session.id,
             create_time=str(session.create_time) if getattr(session, "create_time", None) else None,
             update_time=str(session.update_time) if getattr(session, "update_time", None) else None,
         )
     except Exception as e:
+        print(f"❌ Failed to create session: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
