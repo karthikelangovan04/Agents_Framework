@@ -200,19 +200,24 @@ export default function ChatPage() {
     // Load session history
     const loadHistory = async () => {
       setHistoryLoading(true);
-      console.log(`📚 Loading history for session: ${currentSessionId.slice(0, 8)}...`);
+      console.log(`📚 [ChatPage] Loading history for session: ${currentSessionId.slice(0, 8)}...`);
+      console.log(`📚 [ChatPage] User ID: ${user.user_id}, Username: ${user.username}`);
       
       const history = await getSessionHistory(currentSessionId, user.user_id);
       
+      console.log(`📚 [ChatPage] getSessionHistory returned:`, history);
+      
       if (history && history.threadExists) {
-        console.log(`✅ Loaded ${history.messages.length} messages from session`);
+        console.log(`✅ [ChatPage] Loaded ${history.messages.length} messages from session`);
+        console.log(`✅ [ChatPage] Setting sessionHistory state...`);
         setSessionHistory(history);
       } else {
-        console.log(`📝 New session - no previous history`);
+        console.log(`📝 [ChatPage] New session - no previous history`);
         setSessionHistory(null);
       }
       
       setHistoryLoading(false);
+      console.log(`📚 [ChatPage] History loading complete. historyLoading=false`);
     };
     
     loadHistory();

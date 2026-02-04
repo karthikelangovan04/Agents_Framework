@@ -88,30 +88,40 @@ export async function getSessionHistory(
   userId: number
 ): Promise<SessionHistory | null> {
   try {
+    console.log(`🔍 [getSessionHistory] Fetching history for session: ${sessionId.slice(0, 8)}...`);
+    console.log(`🔍 [getSessionHistory] User ID: ${userId}`);
+    console.log(`🔍 [getSessionHistory] API URL: ${getApiUrl()}/agents/state`);
+    
     // In AG-UI protocol, threadId is used to lookup sessions
     // We use sessionId as threadId (configured in CopilotKit threadId prop)
+    const requestBody = {
+      threadId: sessionId, // Use sessionId as threadId
+      appName: "copilot_adk_app",
+      userId: String(userId),
+    };
+    console.log(`🔍 [getSessionHistory] Request body:`, requestBody);
+    
     const res = await fetch(`${getApiUrl()}/agents/state`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        threadId: sessionId, // Use sessionId as threadId
-        appName: "copilot_adk_app",
-        userId: String(userId),
-      }),
+      body: JSON.stringify(requestBody),
     });
 
+    console.log(`🔍 [getSessionHistory] Response status: ${res.status} ${res.statusText}`);
+    
     if (!res.ok) {
-      console.error(`Failed to fetch session history: ${res.status}`);
+      console.error(`❌ [getSessionHistory] Failed to fetch session history: ${res.status}`);
       return null;
     }
 
     const data = await res.json();
+    console.log(`🔍 [getSessionHistory] Response data:`, data);
     
     // If thread doesn't exist, it might be a new session or not yet used
     if (!data.threadExists) {
-      console.log(`Session ${sessionId.slice(0, 8)}... has no messages yet (new session)`);
+      console.log(`📝 [getSessionHistory] Session ${sessionId.slice(0, 8)}... has no messages yet (new session)`);
       return {
         threadId: sessionId,
         threadExists: false,
@@ -120,14 +130,18 @@ export async function getSessionHistory(
       };
     }
 
+    const parsedMessages = JSON.parse(data.messages || "[]");
+    console.log(`✅ [getSessionHistory] Successfully loaded ${parsedMessages.length} messages for session ${sessionId.slice(0, 8)}...`);
+    console.log(`✅ [getSessionHistory] Sample messages:`, parsedMessages.slice(0, 2));
+
     return {
       threadId: data.threadId,
       threadExists: data.threadExists,
       state: JSON.parse(data.state || "{}"),
-      messages: JSON.parse(data.messages || "[]"),
+      messages: parsedMessages,
     };
   } catch (error) {
-    console.error("Error fetching session history:", error);
+    console.error("❌ [getSessionHistory] Error fetching session history:", error);
     return null;
   }
 }
