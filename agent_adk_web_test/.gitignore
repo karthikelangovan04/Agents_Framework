@@ -1,0 +1,10 @@
+# Environment files
+.env
+adk_web_testing/.env
+
+# Logs directory
+logs/
+
+# ADK session databases
+.adk/
+adk_web_testing/.adk/
