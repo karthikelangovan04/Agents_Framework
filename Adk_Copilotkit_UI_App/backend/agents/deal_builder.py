@@ -91,28 +91,45 @@ def on_before_agent(callback_context: CallbackContext) -> None:
         }
 
 
-def before_model_modifier(
-    callback_context: CallbackContext, llm_request: LlmRequest
-) -> Optional[LlmResponse]:
-    """Inject current deal state into system instruction."""
-    if callback_context.agent_name != "deal_builder":
-        return None
-    deal_json = "No deal yet"
-    if "deal" in callback_context.state and callback_context.state["deal"]:
-        try:
-            deal_json = json.dumps(callback_context.state["deal"], indent=2)
-        except Exception:
-            deal_json = str(callback_context.state["deal"])
-    prefix = f"""You are a helpful deal/opportunity assistant. Current deal state:
-{deal_json}
-Use the update_deal tool to suggest or apply changes. After updating, give a brief summary."""
-    orig = llm_request.config.system_instruction or types.Content(role="system", parts=[])
-    if not isinstance(orig, types.Content):
-        orig = types.Content(role="system", parts=[types.Part(text=str(orig))])
-    if not orig.parts:
-        orig.parts.append(types.Part(text=""))
-    orig.parts[0].text = prefix + (orig.parts[0].text or "")
-    llm_request.config.system_instruction = orig
+def before_model_modifier(callback_context: CallbackContext, llm_request: LlmRequest) -> Optional[LlmResponse]:
+    """Inject deal state and enable Google Search grounding."""
+    state = callback_context.state
+    deal = state.get("deal", {})
+    
+    # Build a concise deal summary for context
+    deal_context = f"""
+Current Deal:
+- Customer: {deal.get('customer_name', 'Not set')}
+- Segment: {deal.get('segment', 'Not set')}
+- Products: {', '.join(deal.get('products', [])) if deal.get('products') else 'None'}
+- Value: {deal.get('estimated_value', 'Not set')}
+- Stage: {deal.get('stage', 'Not set')}
+- Next Steps: {', '.join(deal.get('next_steps', [])) if deal.get('next_steps') else 'None'}
+"""
+    
+    # Enable Google Search grounding
+    grounding_config = types.GoogleSearchRetrieval()
+    
+    # Modify the request in-place
+    llm_request.config = llm_request.config or types.GenerateContentConfig()
+    llm_request.config.tools = llm_request.config.tools or []
+    
+    # Add grounding tool if not already present
+    if not any(hasattr(tool, 'google_search_retrieval') for tool in llm_request.config.tools):
+        llm_request.config.tools.append(types.Tool(google_search_retrieval=grounding_config))
+    
+    # Add deal context to system instruction
+    if llm_request.config.system_instruction:
+        orig_inst = llm_request.config.system_instruction
+        if isinstance(orig_inst, str):
+            llm_request.config.system_instruction = deal_context + "\n" + orig_inst
+        elif isinstance(orig_inst, types.Content):
+            if orig_inst.parts and orig_inst.parts[0].text:
+                orig_inst.parts[0].text = deal_context + "\n" + orig_inst.parts[0].text
+    else:
+        llm_request.config.system_instruction = deal_context
+    
+    # Return None to continue with the modified request
     return None
 
 
@@ -146,6 +163,10 @@ deal_builder_agent = LlmAgent(
     model=GEMINI_MODEL,
     instruction=(
         "You help users build and improve deals (opportunities). "
+        "You have access to Google Search grounding to search the web for real products and company information. "
+        "When a user mentions a company or asks for product suggestions, search for relevant information. "
+        "For example, search for 'Google Cloud products for enterprise' or 'Microsoft Azure services'. "
+        "Extract product names from the search results and use update_deal to add them to the recommended products list. "
         "Always use the update_deal tool when suggesting or applying changes to customer, segment, products, value, stage, or next steps. "
         "After a successful update, briefly summarize what you changed. Be concise and practical."
     ),
