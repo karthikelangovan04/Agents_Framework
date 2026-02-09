@@ -204,6 +204,17 @@ Additional packages providing supporting functionality.
 - Telemetry package
 - Evaluation package
 
+### 13. [Safety and Security for AI Agents](24-Safety-and-Security.md) (`docs/24-Safety-and-Security.md`)
+Multi-layered safety and security guidance for building trustworthy agents with Vertex AI and ADK.
+
+**Topics Covered:**
+- Identity and authorization (agent-auth, user auth)
+- Guardrails: in-tool guardrails, Gemini safety features, callbacks and plugins
+- Sandboxed code execution
+- Evaluation and tracing
+- VPC-SC and network controls
+- Risk assessment and best practices
+
 ## 🔧 Specialized Topics
 
 ### [MCP Tools Dynamic Loading](15-MCP-Tools-Dynamic-Loading.md) (`docs/15-MCP-Tools-Dynamic-Loading.md`)
@@ -270,6 +281,9 @@ Complete guide to implementing per-user MCP tool management like Claude/Cursor:
 **Manage state across scopes:**
 → [State Management - Example 1](11-State-Management.md#example-1-application-level-state)
 
+**Harden agent safety and security:**
+→ [Safety and Security for AI Agents](24-Safety-and-Security.md)
+
 **Create remote agents:**
 → [A2A Package - Example 1](04-A2A-Package.md#example-1-creating-a-remote-agent-server)
 
@@ -334,6 +348,12 @@ Each package documentation follows this structure:
 - [Google AI Studio](https://makersuite.google.com/)
 - [Vertex AI Documentation](https://cloud.google.com/vertex-ai/docs)
 - [UV Package Manager](https://github.com/astral-sh/uv)
+
+## 🛡️ Safety and Security
+
+- **Risk assessment and guardrails** → [Safety and Security for AI Agents](24-Safety-and-Security.md)
+- **Identity, tool guardrails, callbacks/plugins** → [24-Safety-and-Security.md](24-Safety-and-Security.md#guardrails-to-screen-inputs-and-outputs)
+- **Sandboxed code execution** → [24-Safety-and-Security.md](24-Safety-and-Security.md#sandboxed-code-execution)
 
 ## 🐛 Troubleshooting
 

@@ -17,6 +17,20 @@ interface DealState {
   changes: string;
 }
 
+interface ProposalState {
+  executive_summary: string;
+  solution_overview: string;
+  benefits: string[];
+  pricing: string;
+  timeline: string;
+  terms: string;
+}
+
+interface AgentState {
+  deal: DealState;
+  proposal: ProposalState;
+}
+
 const INITIAL_DEAL: DealState = {
   customer_name: "",
   segment: "",
@@ -25,6 +39,15 @@ const INITIAL_DEAL: DealState = {
   stage: "Discovery",
   next_steps: [],
   changes: "",
+};
+
+const INITIAL_PROPOSAL: ProposalState = {
+  executive_summary: "",
+  solution_overview: "",
+  benefits: [],
+  pricing: "",
+  timeline: "",
+  terms: "",
 };
 
 const STAGES = ["Discovery", "Qualification", "Proposal", "Negotiation", "Closed Won", "Closed Lost"];
@@ -52,11 +75,15 @@ export default function DealPage() {
 }
 
 function DealForm() {
-  const { state: agentState, setState: setAgentState } = useCoAgent<{ deal: DealState }>({
+  const { state: agentState, setState: setAgentState } = useCoAgent<AgentState>({
     name: "deal_builder",
-    initialState: { deal: INITIAL_DEAL },
+    initialState: { 
+      deal: INITIAL_DEAL,
+      proposal: INITIAL_PROPOSAL,
+    },
   });
   const [deal, setDeal] = useState<DealState>(INITIAL_DEAL);
+  const [proposal, setProposal] = useState<ProposalState>(INITIAL_PROPOSAL);
   const { appendMessage, isLoading } = useCopilotChat();
 
   const updateDeal = (partial: Partial<DealState>) => {
@@ -81,6 +108,21 @@ function DealForm() {
     }
   }, [agentState?.deal]);
 
+  // Sync proposal from agent state
+  useEffect(() => {
+    if (agentState?.proposal) {
+      const p = agentState.proposal;
+      setProposal({
+        executive_summary: p.executive_summary ?? "",
+        solution_overview: p.solution_overview ?? "",
+        benefits: Array.isArray(p.benefits) ? p.benefits : [],
+        pricing: p.pricing ?? "",
+        timeline: p.timeline ?? "",
+        terms: p.terms ?? "",
+      });
+    }
+  }, [agentState?.proposal]);
+
   const addProduct = () => updateDeal({ products: [...deal.products, ""] });
   const setProduct = (i: number, v: string) => {
     const p = [...deal.products];
@@ -98,6 +140,33 @@ function DealForm() {
   };
   const removeNextStep = (i: number) => {
     updateDeal({ next_steps: deal.next_steps.filter((_, j) => j !== i) });
+  };
+
+  const hasProposal = proposal && (
+    proposal.executive_summary ||
+    proposal.solution_overview ||
+    proposal.benefits?.length > 0
+  );
+
+  const handleGenerateProposal = () => {
+    if (!isLoading) {
+      const currentDeal = {
+        customer_name: deal.customer_name ?? "",
+        segment: deal.segment ?? "",
+        products: [...deal.products],
+        estimated_value: deal.estimated_value ?? "",
+        stage: deal.stage ?? "Discovery",
+        next_steps: [...deal.next_steps],
+        changes: deal.changes ?? "",
+      };
+      setAgentState({ ...agentState, deal: currentDeal });
+      appendMessage(
+        new TextMessage({ 
+          role: MessageRole.User, 
+          content: "Generate a comprehensive proposal document for this deal" 
+        })
+      );
+    }
   };
 
   return (
@@ -237,6 +306,90 @@ function DealForm() {
             {isLoading ? "Thinking…" : "Improve with AI"}
           </button>
         </div>
+      </div>
+
+      {/* Proposal Section */}
+      <div style={{ background: "var(--card)", borderRadius: 12, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", border: "1px solid var(--border)", marginTop: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, paddingBottom: 16, borderBottom: "2px solid var(--border)" }}>
+          <h2 style={{ margin: 0 }}>Proposal</h2>
+          {!hasProposal && (
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={handleGenerateProposal}
+              style={{
+                padding: "8px 16px",
+                background: "var(--primary)",
+                color: "white",
+                border: "none",
+                borderRadius: 6,
+                fontWeight: 500,
+                cursor: isLoading ? "not-allowed" : "pointer",
+                opacity: isLoading ? 0.6 : 1,
+                fontSize: 14,
+              }}
+            >
+              {isLoading ? "Generating..." : "Generate Proposal"}
+            </button>
+          )}
+        </div>
+
+        {hasProposal ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {proposal.executive_summary && (
+              <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
+                <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Executive Summary</h3>
+                <p style={{ margin: 0, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{proposal.executive_summary}</p>
+              </div>
+            )}
+
+            {proposal.solution_overview && (
+              <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
+                <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Solution Overview</h3>
+                <p style={{ margin: 0, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{proposal.solution_overview}</p>
+              </div>
+            )}
+
+            {proposal.benefits && proposal.benefits.length > 0 && (
+              <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
+                <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Key Benefits</h3>
+                <ul style={{ margin: 0, paddingLeft: 24 }}>
+                  {proposal.benefits.map((benefit, idx) => (
+                    <li key={idx} style={{ marginBottom: 8, lineHeight: 1.6 }}>{benefit}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {proposal.pricing && (
+              <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
+                <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Pricing</h3>
+                <p style={{ margin: 0, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{proposal.pricing}</p>
+              </div>
+            )}
+
+            {proposal.timeline && (
+              <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
+                <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Timeline</h3>
+                <p style={{ margin: 0, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{proposal.timeline}</p>
+              </div>
+            )}
+
+            {proposal.terms && (
+              <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
+                <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Terms & Conditions</h3>
+                <p style={{ margin: 0, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{proposal.terms}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ textAlign: "center", padding: "48px 32px", color: "#6c757d" }}>
+            <p style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>No proposal generated yet.</p>
+            <p style={{ fontSize: 14, fontStyle: "italic", margin: 0 }}>
+              Click "Generate Proposal" above or ask the AI: "Generate a proposal for this deal"
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
