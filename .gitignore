@@ -74,3 +74,11 @@ Thumbs.db
 
 # CopilotKit exported data (CSV/JSON exports)
 Copliot Kit/
+
+# Callback exploration outputs
+adk_explore_callback/callback_exploration_output_*.txt
+adk_explore_callback/callback_sensitive_data_output_*.txt
+adk_explore_callback/callback_exploration_teach_output_*.txt
+adk_explore_callback/callback_plugin_agent_full_demo_output_*.txt
+adk_explore_callback/llm_cache.db
+adk_explore_callback/sensitive_data_mapping.db

@@ -92,6 +92,12 @@ function DealForm() {
     setAgentState({ ...agentState, deal: next });
   };
 
+  const updateProposal = (partial: Partial<ProposalState>) => {
+    const next = { ...proposal, ...partial };
+    setProposal(next);
+    setAgentState({ ...agentState, proposal: next });
+  };
+
   // Sync from agent state to local when agent updates
   useEffect(() => {
     if (agentState?.deal) {
@@ -140,6 +146,17 @@ function DealForm() {
   };
   const removeNextStep = (i: number) => {
     updateDeal({ next_steps: deal.next_steps.filter((_, j) => j !== i) });
+  };
+
+  // Proposal handlers
+  const addBenefit = () => updateProposal({ benefits: [...proposal.benefits, ""] });
+  const setBenefit = (i: number, v: string) => {
+    const b = [...proposal.benefits];
+    b[i] = v;
+    updateProposal({ benefits: b });
+  };
+  const removeBenefit = (i: number) => {
+    updateProposal({ benefits: proposal.benefits.filter((_, j) => j !== i) });
   };
 
   const hasProposal = proposal && (
@@ -336,51 +353,146 @@ function DealForm() {
 
         {hasProposal ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {proposal.executive_summary && (
-              <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
-                <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Executive Summary</h3>
-                <p style={{ margin: 0, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{proposal.executive_summary}</p>
-              </div>
-            )}
+            <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
+              <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Executive Summary</h3>
+              <textarea
+                value={proposal.executive_summary}
+                onChange={(e) => updateProposal({ executive_summary: e.target.value })}
+                placeholder="Enter executive summary..."
+                rows={4}
+                style={{ 
+                  width: "100%", 
+                  padding: "8px 12px", 
+                  borderRadius: 6, 
+                  border: "1px solid var(--border)",
+                  fontFamily: "inherit",
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  resize: "vertical"
+                }}
+              />
+            </div>
 
-            {proposal.solution_overview && (
-              <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
-                <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Solution Overview</h3>
-                <p style={{ margin: 0, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{proposal.solution_overview}</p>
-              </div>
-            )}
+            <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
+              <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Solution Overview</h3>
+              <textarea
+                value={proposal.solution_overview}
+                onChange={(e) => updateProposal({ solution_overview: e.target.value })}
+                placeholder="Enter solution overview..."
+                rows={6}
+                style={{ 
+                  width: "100%", 
+                  padding: "8px 12px", 
+                  borderRadius: 6, 
+                  border: "1px solid var(--border)",
+                  fontFamily: "inherit",
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  resize: "vertical"
+                }}
+              />
+            </div>
 
-            {proposal.benefits && proposal.benefits.length > 0 && (
-              <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
-                <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Key Benefits</h3>
-                <ul style={{ margin: 0, paddingLeft: 24 }}>
-                  {proposal.benefits.map((benefit, idx) => (
-                    <li key={idx} style={{ marginBottom: 8, lineHeight: 1.6 }}>{benefit}</li>
-                  ))}
-                </ul>
+            <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <h3 style={{ margin: 0, fontSize: 16, color: "#495057", fontWeight: 600 }}>Key Benefits</h3>
+                <button 
+                  type="button" 
+                  onClick={addBenefit} 
+                  style={{ fontSize: 12, color: "var(--primary)", background: "none", border: "none", cursor: "pointer" }}
+                >
+                  + Add Benefit
+                </button>
               </div>
-            )}
+              {proposal.benefits.map((benefit, idx) => (
+                <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+                  <input
+                    type="text"
+                    value={benefit}
+                    onChange={(e) => setBenefit(idx, e.target.value)}
+                    placeholder="Benefit description"
+                    style={{ 
+                      flex: 1, 
+                      padding: "8px 12px", 
+                      borderRadius: 6, 
+                      border: "1px solid var(--border)" 
+                    }}
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => removeBenefit(idx)} 
+                    style={{ padding: "0 10px", background: "none", border: "none", cursor: "pointer", fontSize: 18 }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              {proposal.benefits.length === 0 && (
+                <p style={{ fontSize: 12, color: "#6c757d", fontStyle: "italic", margin: 0 }}>
+                  No benefits added. Click "+ Add Benefit" to add one.
+                </p>
+              )}
+            </div>
 
-            {proposal.pricing && (
-              <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
-                <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Pricing</h3>
-                <p style={{ margin: 0, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{proposal.pricing}</p>
-              </div>
-            )}
+            <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
+              <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Pricing</h3>
+              <textarea
+                value={proposal.pricing}
+                onChange={(e) => updateProposal({ pricing: e.target.value })}
+                placeholder="Enter pricing details..."
+                rows={4}
+                style={{ 
+                  width: "100%", 
+                  padding: "8px 12px", 
+                  borderRadius: 6, 
+                  border: "1px solid var(--border)",
+                  fontFamily: "inherit",
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  resize: "vertical"
+                }}
+              />
+            </div>
 
-            {proposal.timeline && (
-              <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
-                <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Timeline</h3>
-                <p style={{ margin: 0, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{proposal.timeline}</p>
-              </div>
-            )}
+            <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
+              <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Timeline</h3>
+              <textarea
+                value={proposal.timeline}
+                onChange={(e) => updateProposal({ timeline: e.target.value })}
+                placeholder="Enter timeline..."
+                rows={4}
+                style={{ 
+                  width: "100%", 
+                  padding: "8px 12px", 
+                  borderRadius: 6, 
+                  border: "1px solid var(--border)",
+                  fontFamily: "inherit",
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  resize: "vertical"
+                }}
+              />
+            </div>
 
-            {proposal.terms && (
-              <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
-                <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Terms & Conditions</h3>
-                <p style={{ margin: 0, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{proposal.terms}</p>
-              </div>
-            )}
+            <div style={{ background: "white", padding: 16, borderRadius: 8, border: "1px solid var(--border)" }}>
+              <h3 style={{ margin: "0 0 12px 0", fontSize: 16, color: "#495057", fontWeight: 600 }}>Terms & Conditions</h3>
+              <textarea
+                value={proposal.terms}
+                onChange={(e) => updateProposal({ terms: e.target.value })}
+                placeholder="Enter terms and conditions..."
+                rows={4}
+                style={{ 
+                  width: "100%", 
+                  padding: "8px 12px", 
+                  borderRadius: 6, 
+                  border: "1px solid var(--border)",
+                  fontFamily: "inherit",
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  resize: "vertical"
+                }}
+              />
+            </div>
           </div>
         ) : (
           <div style={{ textAlign: "center", padding: "48px 32px", color: "#6c757d" }}>

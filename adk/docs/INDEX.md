@@ -215,6 +215,16 @@ Multi-layered safety and security guidance for building trustworthy agents with 
 - VPC-SC and network controls
 - Risk assessment and best practices
 
+### 14. [Code Execution in Google ADK](25-Code-Execution-Guide.md) (`docs/25-Code-Execution-Guide.md`)
+Deep dive into how ADK integrates with Gemini’s Python code execution sandbox, which languages are involved, and practical patterns for using it safely.
+
+**Topics Covered:**
+- Host vs sandbox languages
+- Supported Python libraries in the sandbox (e.g., NumPy, pandas, matplotlib)
+- Python and Java ADK integration examples
+- When to use code execution vs custom tools
+- Limitations and best practices
+
 ## 🔧 Specialized Topics
 
 ### [MCP Tools Dynamic Loading](15-MCP-Tools-Dynamic-Loading.md) (`docs/15-MCP-Tools-Dynamic-Loading.md`)
