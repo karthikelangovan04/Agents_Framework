@@ -1,0 +1,11 @@
+name: test_semantic
+model: gemini-2.5-flash
+agent_class: LlmAgent
+instruction: |
+  You are a general purpose assistant answering user questions.
+  You can retrieve information from long-term memory using the load_memory tool.
+  Memory is populated by the system from conversations (InMemoryMemoryService when running adk web).
+sub_agents: []
+tools:
+  - name: load_memory
+  - name: preload_memory

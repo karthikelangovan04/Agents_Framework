@@ -7,6 +7,16 @@
 
 The `google.adk.memory` package provides memory services for agents, allowing them to store and retrieve information across sessions. Memory services enable agents to learn from past interactions and maintain long-term knowledge.
 
+## Installation
+
+**No separate install is required for `InMemoryMemoryService`.** It is part of the ADK Python library. Ensure you have the ADK package installed, then import:
+
+```python
+from google.adk.memory import InMemoryMemoryService
+```
+
+When you run **adk web** without `--memory_service_uri`, the server uses `InMemoryMemoryService` by default (see `adk-python-lib/src/google/adk/cli/utils/service_factory.py`: `create_memory_service_from_options()`).
+
 ## Key Classes
 
 ### BaseMemoryService
@@ -15,7 +25,15 @@ Abstract base class for memory services.
 
 ### InMemoryMemoryService
 
-In-memory memory service (for development).
+In-memory memory service (for development and prototyping). **No extra install** – use `from google.adk.memory import InMemoryMemoryService`.
+
+**How it works (from `adk-python-lib/src/google/adk/memory/in_memory_memory_service.py`):**
+
+- **Storage**: Python dict in RAM, `_session_events[app_name/user_id][session_id] = [event1, event2, ...]`
+- **Search**: Keyword matching – extracts words from the query and matches against stored event text (any query word in event text → match).
+- **Persistence**: Data is lost when the process terminates.
+- **Thread safety**: Thread-safe (uses `threading.Lock()`).
+- **Performance**: Very fast for small datasets (< 10,000 memories).
 
 ### VertexAiMemoryBankService
 

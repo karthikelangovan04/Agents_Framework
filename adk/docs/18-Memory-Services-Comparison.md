@@ -43,7 +43,7 @@ Before diving into the differences, it's crucial to understand the distinction b
 | **Use Case** | Development, testing, prototyping | Production applications |
 | **Setup** | No setup required | Requires GCP project and Memory Bank |
 | **Cost** | Free | Pay-per-use (Google Cloud pricing) |
-| **Concurrency** | Single process only | Multi-process, distributed |
+| **Concurrency** | Thread-safe, single process | Multi-process, distributed |
 
 ---
 
@@ -68,7 +68,7 @@ _session_events = {
 1. **Storage**: Python dictionary in RAM (`_session_events`)
 2. **Search**: Simple keyword matching - extracts words from query and matches against stored event text
 3. **Persistence**: Data is lost when the process terminates
-4. **Thread Safety**: Not thread-safe (single process only)
+4. **Thread Safety**: Thread-safe (uses `threading.Lock()` in the implementation; single process only)
 5. **Performance**: Very fast for small datasets (< 10,000 memories)
 
 ### Implementation Details
