@@ -25,6 +25,37 @@ The agents package contains the following key components:
 
 The `Agent` class (aliased from `LlmAgent`) is the primary class for creating LLM-powered agents.
 
+#### Agent vs LlmAgent: What’s the Difference?
+
+When reading ADK code or docs you may see either `Agent` or `LlmAgent`. In the Google ADK Python library they refer to the **same class**:
+
+| Aspect | `Agent` | `LlmAgent` |
+|--------|--------|-------------|
+| **Definition** | Type alias for `LlmAgent` | The actual class (`class LlmAgent(BaseAgent)`) |
+| **Source** | `google.adk.agents.llm_agent`: `Agent: TypeAlias = LlmAgent` | `google.adk.agents.llm_agent`: `class LlmAgent(BaseAgent)` |
+| **Imports** | `from google.adk import Agent` or `from google.adk.agents import Agent` | `from google.adk.agents import LlmAgent` |
+| **Usage** | `root_agent = Agent(name="...", model="...", ...)` | `root_agent = LlmAgent(name="...", model="...", ...)` |
+| **Behavior** | Identical — both construct the same LLM-based agent | Identical — same class |
+
+**Summary:**
+
+- **`LlmAgent`** is the real class name; it subclasses `BaseAgent` and implements the LLM-based agent (model, instructions, tools, callbacks).
+- **`Agent`** is a **type alias** for `LlmAgent` (see `adk-python-lib/src/google/adk/agents/llm_agent.py`: `Agent: TypeAlias = LlmAgent`). It exists so you can write `from google.adk import Agent` and use the shorter name.
+- There is **no functional difference**. Use `Agent` for brevity or `LlmAgent` when you want the explicit class name (e.g. type hints, `isinstance(x, LlmAgent)`).
+
+**Example (equivalent):**
+
+```python
+# Option 1: Top-level convenience (docs and simple apps)
+from google.adk import Agent
+root_agent = Agent(name="my_agent", model="gemini-2.5-flash", instruction="...")
+
+# Option 2: Explicit class name (e.g. deal_builder.py, type hints)
+from google.adk.agents import Agent, LlmAgent
+deal_builder_agent = LlmAgent(name="deal_builder", model="...", tools=[...])
+# Agent and LlmAgent are the same type here
+```
+
 #### Constructor Parameters
 
 ```python

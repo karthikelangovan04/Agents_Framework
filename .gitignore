@@ -83,3 +83,7 @@ adk_explore_callback/callback_plugin_agent_full_demo_output_*.txt
 adk_explore_callback/callback_plugin_multi_agent_output_*.txt
 adk_explore_callback/llm_cache.db
 adk_explore_callback/sensitive_data_mapping.db
+
+# Deal Builder callback logs
+Adk_Copilotkit_UI_App/backend/callback_logs/
+Adk_Copilotkit_UI_App/backend/callback_logs/*.txt

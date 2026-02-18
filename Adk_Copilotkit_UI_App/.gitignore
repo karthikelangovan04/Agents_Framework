@@ -22,3 +22,7 @@ frontend/node_modules/
 .DS_Store
 .idea/
 *.log
+
+# Callback logs (generated during agent execution)
+backend/callback_logs/
+backend/callback_logs/*.txt

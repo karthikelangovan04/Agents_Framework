@@ -17,10 +17,13 @@ from agents.knowledge_qa import knowledge_qa_agent
 try:
     from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
     from ag_ui.core import RunAgentInput
+    from google.adk.agents.run_config import RunConfig, StreamingMode
     HAS_AG_UI = True
 except ImportError as e:
     HAS_AG_UI = False
     RunAgentInput = None  # type: ignore
+    RunConfig = None  # type: ignore
+    StreamingMode = None  # type: ignore
     print(f"⚠️ ag_ui_adk not loaded: {e}. POST /ag-ui/* will not work.")
 
 app = FastAPI(title="ADK CopilotKit Backend", version="0.1.0")
@@ -58,6 +61,16 @@ def extract_user_from_state(input: RunAgentInput) -> str:
     return f"thread_user_{getattr(input, 'thread_id', 'default')}"
 
 
+def create_streaming_run_config(input: RunAgentInput) -> RunConfig:
+    """Create RunConfig with SSE streaming enabled for real-time responses.
+    
+    This enables Server-Sent Events (SSE) streaming mode, which allows the backend
+    to send partial responses as they're generated, enabling a typewriter effect
+    in the frontend instead of waiting for the complete response.
+    """
+    return RunConfig(streaming_mode=StreamingMode.SSE)
+
+
 @app.on_event("shutdown")
 async def shutdown():
     """Close session service connection pool (reference does this)."""
@@ -88,6 +101,7 @@ if HAS_AG_UI:
             session_timeout_seconds=SESSION_TIMEOUT_SECONDS,
             use_in_memory_services=False,
             session_service=session_service,
+            run_config_factory=create_streaming_run_config,
         )
         adk_knowledge_qa = ADKAgent(
             adk_agent=knowledge_qa_agent,
@@ -96,8 +110,9 @@ if HAS_AG_UI:
             session_timeout_seconds=SESSION_TIMEOUT_SECONDS,
             use_in_memory_services=False,
             session_service=session_service,
+            run_config_factory=create_streaming_run_config,
         )
-        print("✅ ADKAgent(s) initialized with Postgres session service + user_id_extractor")
+        print("✅ ADKAgent(s) initialized with Postgres session service + user_id_extractor + SSE streaming")
     except TypeError as e:
         print(f"⚠️ ADKAgent fallback to in-memory services: {e}")
         adk_deal_builder = ADKAgent(
@@ -106,6 +121,7 @@ if HAS_AG_UI:
             user_id_extractor=extract_user_from_state,
             session_timeout_seconds=SESSION_TIMEOUT_SECONDS,
             use_in_memory_services=True,
+            run_config_factory=create_streaming_run_config,
         )
         adk_knowledge_qa = ADKAgent(
             adk_agent=knowledge_qa_agent,
@@ -113,7 +129,9 @@ if HAS_AG_UI:
             user_id_extractor=extract_user_from_state,
             session_timeout_seconds=SESSION_TIMEOUT_SECONDS,
             use_in_memory_services=True,
+            run_config_factory=create_streaming_run_config,
         )
+        print("✅ ADKAgent(s) initialized with in-memory services + SSE streaming")
     add_adk_fastapi_endpoint(
         app,
         adk_deal_builder,
